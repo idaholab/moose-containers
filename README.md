@@ -17,3 +17,14 @@ Based on `moose-base/rocky-x86_64` and adds:
 - A modern compiler (currently GCC 12)
 - A MPICH build to `/opt/mpich`
 - An OpenMPI build to `/opt/openmpi`
+
+### moose-hpcbase/rocky-cuda-x86_64
+
+Base image for containers that include cuda and MPI-aware cuda.
+
+Based on `moose-base/rocky-x86_64` and adds:
+
+- A modern compiler (currently GCC 12)
+- CUDA
+- A MPICH build (cuda aware) to `/opt/mpich`
+- An OpenMPI build (cuda aware) to `/opt/openmpi`
