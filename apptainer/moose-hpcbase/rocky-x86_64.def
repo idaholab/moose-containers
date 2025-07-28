@@ -1,0 +1,68 @@
+Bootstrap: oras
+From: mooseharbor.hpc.inl.gov/base/rocky-x86_64:8.10-5
+Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
+
+# Changelog
+#
+# Version 8.10-3:
+# - Updated base container to 8.10-5
+# - Updated MPICH to 4.3.1
+# - Updated OpenMPI to 5.0.8
+# - Added build logs
+
+%environment
+    # Alternate GCC 12
+    source /opt/rh/gcc-toolset-12/enable
+
+%post
+    MPICH_VERSION=4.3.1
+    OPENMPI_VERSION=5.0.8
+
+    BUILD_DIR=/root/build
+    mkdir $BUILD_DIR
+
+    # GCC 12 and basic build utilities
+    dnf install -y gcc-toolset-12 gcc-toolset-12-gcc gcc-toolset-12-gcc-gfortran \
+        gcc-toolset-12-gcc-c++ gcc-toolset-12-gdb make hwloc findutils zlib-devel
+    source /opt/rh/gcc-toolset-12/enable
+
+    # Install MPICH
+    cd ${BUILD_DIR}
+    MPICH_NAME="mpich-${MPICH_VERSION}"
+    MPICH_URL="https://www.mpich.org/static/downloads/${MPICH_VERSION}/${MPICH_NAME}.tar.gz"
+    MPICH_TAR=${BUILD_DIR}/mpich.tar.gz
+    MPICH_DIR=/opt/mpich
+    mkdir -p ${MPICH_DIR}/logs
+    curl -L ${MPICH_URL} -o ${MPICH_TAR}
+    tar xf ${MPICH_TAR} -C ${BUILD_DIR}
+    rm $MPICH_TAR
+    cd ${BUILD_DIR}/${MPICH_NAME}
+    mkdir build
+    cd build
+    ../configure --prefix=${MPICH_DIR} 2>&1 | tee ${MPICH_DIR}/logs/configure.log
+    make -j 32 2>&1 | tee ${MPICH_DIR}/logs/build.log
+    make install 2>&1 | tee ${MPICH_DIR}/logs/install.log
+    rm -rf ${BUILD_DIR}/${MPICH_NAME}
+
+    # Install OpenMPI
+    cd ${BUILD_DIR}
+    OPENMPI_MAJOR_VERSION=$(cut -d '.' -f 1,2 <<< "$OPENMPI_VERSION")
+    OPENMPI_NAME="openmpi-${OPENMPI_VERSION}"
+    OPENMPI_URL="https://download.open-mpi.org/release/open-mpi/v${OPENMPI_MAJOR_VERSION}/${OPENMPI_NAME}.tar.gz"
+    OPENMPI_TAR=${BUILD_DIR}/openmpi.tar.gz
+    OPENMPI_DIR=/opt/openmpi
+    mkdir -p ${OPENMPI_DIR}/logs
+    curl -L ${OPENMPI_URL} -o ${OPENMPI_TAR}
+    tar xf ${OPENMPI_TAR} -C ${BUILD_DIR}
+    rm $OPENMPI_TAR
+    cd ${BUILD_DIR}/${OPENMPI_NAME}
+    mkdir build
+    cd build
+    ../configure --prefix=${OPENMPI_DIR} | tee ${OPENMPI_DIR}/logs/configure.log
+    make -j 32 2>&1 | tee ${OPENMPI_DIR}/logs/build.log
+    make install 2>&1 | tee ${OPENMPI_DIR}/logs/install.log
+    rm -rf ${BUILD_DIR}/${OPENMPI_NAME}
+
+    rm -rf ${BUILD_DIR}
+
+    dnf clean all
