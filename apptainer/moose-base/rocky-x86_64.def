@@ -1,0 +1,35 @@
+bootstrap: docker
+from: rockylinux/rockylinux:8.10
+
+# Changelog
+#
+# 8.10-5:
+# - Initial tracked version
+# - General update
+
+%post
+    dnf upgrade -y
+    dnf install -y bzip2 git git-lfs tar vim python3.12 python3.12-devel python3.12-pip \
+      wget rsync hostname jq diffutils file unzip findutils procps-ng xz file
+
+    # Make python default to python3.12
+    alternatives --set python /usr/bin/python3.12
+    alternatives --set python3 /usr/bin/python3.12
+
+    # Install jinja2 and pyyaml
+    pip3 install pyyaml jinja2
+
+    # EPEL repository (additional yum install commands below this point should denote the epel-release dependency)
+    dnf -y install epel-release
+    dnf -y install apptainer
+
+    # Install oras
+    ORAS_VERSION=1.2.2
+    curl -L https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz -o /root/oras.tar.gz
+    mkdir /root/oras-install
+    tar -zxf /root/oras.tar.gz -C /root/oras-install/
+    mv /root/oras-install/oras /usr/local/bin/
+    rm -rf /root/oras*
+
+    # Cleanup
+    dnf clean all
