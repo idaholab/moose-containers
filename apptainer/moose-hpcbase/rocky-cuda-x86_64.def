@@ -1,47 +1,86 @@
-Bootstrap: oras
-From: mooseharbor.hpc.inl.gov/base/rocky-x86_64:8.10-5
-Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
+bootstrap: docker
+from: nvidia/cuda:12.9.1-devel-rockylinux8
 
-# Changelog
 #
-# Version 8.10-cuda12.4-3:
+# Base image for cuda builds. Contains:
+# - Nvidia installed cuda in /usr/local/cuda
+# - MPICH (cuda aware) in /opt/mpich
+# - OpenMPI (cuda aware) in /opt/openmpi
+#
+
+#
+# CHANGELOG
+#
+# 8.10-cuda12.9-0:
+# - Use nvidia base image
+# - Updated cuda to 12.9
+# - Updated GCC to 13
+# - Added test
+# - Set pipefail so that things piped to tee will exit
+#
+# 8.10-cuda12.4-3:
 # - Updated base container to 8.10-5
 # - Updated OpenMPI to 5.0.8
 # - Added MPICH build
 # - Added build logs
+#
 
 %environment
-    source /opt/rh/gcc-toolset-12/enable
+    source /opt/rh/gcc-toolset-13/enable
     export CUDA_DIR=/usr/local/cuda
-    export PATH=${CUDA_DIR}/bin:$PATH
 
 %post
+    # Things from our standard base container that we rely on
+    dnf install -y bzip2 git git-lfs tar vim python3.12 python3.12-devel python3.12-pip \
+      wget rsync hostname jq diffutils file unzip findutils procps-ng xz file
+
+    # Make python default to python3.12
+    alternatives --set python /usr/bin/python3.12
+    alternatives --set python3 /usr/bin/python3.12
+
+    # Install jinja2 and pyyaml
+    pip3 install pyyaml jinja2
+
+    # EPEL repository (additional yum install commands below this point should denote the epel-release dependency)
+    dnf -y install epel-release
+
+    # Install oras
+    ORAS_VERSION=1.2.2
+    curl -L https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz -o /root/oras.tar.gz
+    mkdir /root/oras-install
+    tar -zxf /root/oras.tar.gz -C /root/oras-install/
+    mv /root/oras-install/oras /usr/local/bin/
+    rm -rf /root/oras.tar.gz /root/oras-install/
+
+    # So that piping things to tee fails
+    set -o pipefail
+
+    # Version definitions
     MPICH_VERSION=4.3.1
     OPENMPI_VERSION=5.0.8
 
+    # Install locations
+    CUDA_DIR=/usr/local/cuda
+    MPICH_DIR=/opt/mpich
+    OPENMPI_DIR=/opt/openmpi
+
+    # Setup build directory
     BUILD_DIR=/root/build
     mkdir $BUILD_DIR
 
-    # GCC 12 and basic build utilities
-    dnf install -y gcc-toolset-12 gcc-toolset-12-gcc gcc-toolset-12-gcc-gfortran \
-        gcc-toolset-12-gcc-c++ gcc-toolset-12-gdb make hwloc findutils zlib-devel
-    source /opt/rh/gcc-toolset-12/enable
+    # GCC 13 and basic build utilities
+    dnf install -y gcc-toolset-13 gcc-toolset-13-gcc gcc-toolset-13-gcc-gfortran \
+        gcc-toolset-13-gcc-c++ gcc-toolset-13-gdb make hwloc findutils zlib-devel
+    source /opt/rh/gcc-toolset-13/enable
 
-    # Install CUDA
-    export CUDA_DIR=/usr/local/cuda
-    dnf -y install epel-release
-    CUDA_RPM=${BUILD_DIR}/cuda.rpm
-    curl -L https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-rhel8-12-4-local-12.4.0_550.54.14-1.x86_64.rpm -o ${CUDA_RPM}
-    rpm -i ${CUDA_RPM}
-    dnf -y install cuda
-    rm -rf ${CUDA_RPM}
+    # Path to cuda stubs used during mpich and openmpi configure
+    CUDA_STUB_DIR=${CUDA_DIR}/targets/x86_64-linux/lib/stubs
 
     # Install MPICH
     cd ${BUILD_DIR}
     MPICH_NAME="mpich-${MPICH_VERSION}"
     MPICH_URL="https://www.mpich.org/static/downloads/${MPICH_VERSION}/${MPICH_NAME}.tar.gz"
     MPICH_TAR=${BUILD_DIR}/mpich.tar.gz
-    MPICH_DIR=/opt/mpich
     mkdir -p ${MPICH_DIR}/logs
     curl -L ${MPICH_URL} -o ${MPICH_TAR}
     tar xf ${MPICH_TAR} -C ${BUILD_DIR}
@@ -49,7 +88,9 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
     cd ${BUILD_DIR}/${MPICH_NAME}
     mkdir build
     cd build
-    ../configure --prefix=${MPICH_DIR} --with-cuda=${CUDA_DIR} 2>&1 | tee ${MPICH_DIR}/logs/configure.log
+    ../configure --prefix=${MPICH_DIR} \
+        --with-cuda=${CUDA_DIR} \
+        --with-device=ch4:ucx 2>&1 | tee ${MPICH_DIR}/logs/configure.log
     make -j 32 2>&1 | tee ${MPICH_DIR}/logs/build.log
     make install 2>&1 | tee ${MPICH_DIR}/logs/install.log
     rm -rf ${BUILD_DIR}/${MPICH_NAME}
@@ -60,7 +101,6 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
     OPENMPI_NAME="openmpi-${OPENMPI_VERSION}"
     OPENMPI_URL="https://download.open-mpi.org/release/open-mpi/v${OPENMPI_MAJOR_VERSION}/${OPENMPI_NAME}.tar.gz"
     OPENMPI_TAR=${BUILD_DIR}/openmpi.tar.gz
-    OPENMPI_DIR=/opt/openmpi
     mkdir -p ${OPENMPI_DIR}/logs
     curl -L ${OPENMPI_URL} -o ${OPENMPI_TAR}
     tar xf ${OPENMPI_TAR} -C ${BUILD_DIR}
@@ -68,7 +108,9 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
     cd ${BUILD_DIR}/${OPENMPI_NAME}
     mkdir build
     cd build
-    ../configure --prefix=${OPENMPI_DIR} --with-cuda=${CUDA_DIR} 2>&1 | tee ${OPENMPI_DIR}/logs/configure.log
+    ../configure --prefix=${OPENMPI_DIR} \
+        --with-cuda=${CUDA_DIR} \
+        --with-cuda-libdir=${CUDA_STUB_DIR} 2>&1 | tee ${OPENMPI_DIR}/logs/configure.log 2>&1
     make -j 32 2>&1 | tee ${OPENMPI_DIR}/logs/build.log
     make install 2>&1 | tee ${OPENMPI_DIR}/logs/install.log
     rm -rf ${BUILD_DIR}/${OPENMPI_NAME}
@@ -76,3 +118,10 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
     # Cleanup
     rm -rf ${BUILD_DIR}
     dnf clean all
+
+%test
+    LD_LIBRARY_PATH=/usr/local/cuda/compat:${LD_LIBRARY_PATH} /opt/mpich/bin/mpirun -n 2 hostname || exit $?
+
+    export OMPI_ALLOW_RUN_AS_ROOT=1
+    export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+    /opt/openmpi/bin/mpirun -n 2 hostname || exit $?
