@@ -1,0 +1,68 @@
+Bootstrap: oras
+From: mooseharbor.hpc.inl.gov/base/rocky-x86_64:8.10-5
+Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
+
+#
+# CHANGELOG
+#
+# 8.10-0:
+# - Initial version
+#
+
+%environment
+    # . /opt/intel/oneapi/setvars.sh
+
+%post
+    # So that piping things to tee fails
+    set -o pipefail
+
+    # Basic dependencies
+    dnf install -y make hwloc findutils zlib-devel
+    
+    # Version definitions
+    MPICH_VERSION=4.3.1
+
+    # Install locations
+    MPICH_DIR=/opt/mpich
+
+    BUILD_DIR=/root/build
+    mkdir $BUILD_DIR
+
+    # Install intel oneapi
+    tee > /etc/yum.repos.d/oneAPI.repo << EOF
+[oneAPI]
+name=Intel® oneAPI repository
+baseurl=https://yum.repos.intel.com/oneapi
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+EOF
+    # dnf install -y intel-cpp-essentials
+    dnf install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-openmp
+    dnf install -y intel-oneapi-compiler-fortran
+
+    # Add oneapi to path
+    . /opt/intel/oneapi/setvars.sh
+
+    # Install MPICH
+    cd ${BUILD_DIR}
+    MPICH_NAME="mpich-${MPICH_VERSION}"
+    MPICH_URL="https://www.mpich.org/static/downloads/${MPICH_VERSION}/${MPICH_NAME}.tar.gz"
+    MPICH_TAR=${BUILD_DIR}/mpich.tar.gz
+    mkdir -p ${MPICH_DIR}/logs
+    curl -L ${MPICH_URL} -o ${MPICH_TAR}
+    tar xf ${MPICH_TAR} -C ${BUILD_DIR}
+    rm $MPICH_TAR
+    cd ${BUILD_DIR}/${MPICH_NAME}
+    mkdir build
+    cd build
+    ../configure CC=icx CXX=icpx FC=ifx F77=ifx F90=ifx --prefix=${MPICH_DIR} \
+        --with-device=ch3:nemesis 2>&1 | tee ${MPICH_DIR}/logs/configure.log
+    make -j 32 2>&1 | tee ${MPICH_DIR}/logs/build.log
+    make install 2>&1 | tee ${MPICH_DIR}/logs/install.log
+    rm -rf ${BUILD_DIR}/${MPICH_NAME}
+
+    # Cleanup
+    rm -rf ${BUILD_DIR}
+    dnf clean all
