@@ -10,7 +10,7 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
 #
 
 %environment
-    # . /opt/intel/oneapi/setvars.sh
+    source /opt/intel/oneapi/moose_setvars.sh
 
 %post
     # So that piping things to tee fails
@@ -42,8 +42,10 @@ EOF
     dnf install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-openmp
     dnf install -y intel-oneapi-compiler-fortran
 
-    # Add oneapi to path
-    . /opt/intel/oneapi/setvars.sh
+    # Store the variables we need from the "setvars.sh" script
+    /root/setup_vars.sh /opt/intel/oneapi/moose_setvars.sh
+    chmod +x /opt/intel/oneapi/moose_setvars.sh
+    source /opt/intel/oneapi/moose_setvars.sh
 
     # Install MPICH
     cd ${BUILD_DIR}
@@ -66,3 +68,6 @@ EOF
     # Cleanup
     rm -rf ${BUILD_DIR}
     dnf clean all
+
+%files
+    files/rocky-intel/root/setup_vars.bash /root/setup_vars.sh
