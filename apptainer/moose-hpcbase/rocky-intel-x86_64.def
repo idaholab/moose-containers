@@ -41,7 +41,6 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
 EOF
-    # dnf install -y intel-cpp-essentials
     dnf install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-openmp
     dnf install -y intel-oneapi-compiler-fortran
 
