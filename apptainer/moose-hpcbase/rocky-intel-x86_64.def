@@ -10,15 +10,18 @@ Fingerprints: 841AF5A51549CAFFFB474F65207184EA34A4BD48
 #
 
 %environment
+    source /opt/rh/gcc-toolset-13/enable
     source /opt/intel/oneapi/moose_setvars.sh
 
 %post
     # So that piping things to tee fails
     set -o pipefail
 
-    # Basic dependencies
-    dnf install -y make hwloc findutils zlib-devel
-    
+    # GCC 13 and basic build utilities
+    dnf install -y gcc-toolset-13 gcc-toolset-13-gcc gcc-toolset-13-gcc-gfortran \
+        gcc-toolset-13-gcc-c++ gcc-toolset-13-gdb make hwloc findutils zlib-devel
+    source /opt/rh/gcc-toolset-13/enable
+
     # Version definitions
     MPICH_VERSION=4.3.1
 
