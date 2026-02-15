@@ -1,22 +1,20 @@
-FROM ghcr.io/idaholab/moose-base/rocky:9.7-gcc13_0
+FROM ghcr.io/idaholab/moose-compilerbase/rocky:9.7-gcc13.3.1_0
 
-# Build jobs
-ARG BUILD_JOBS=32
-# Versions
-ARG MPICH_VERSION=4.3.2
-ARG OPENMPI_VERSION=5.0.9
-# Install locations
-ARG MPICH_DIR=/opt/mpich
-ARG OPENMPI_DIR=/opt/openmpi
 # Build location
 ARG BUILD_DIR=/root/build
+
+# Setup build location
+ARG BUILD_DIR=/root/build
+RUN mkdir ${BUILD_DIR}
+
+# Build jobs
+ARG BUILD_JOBS=4
 # Path to the moose env script
 ARG MOOSE_ENV=/moose_env.sh
 
-# Setup build location
-RUN mkdir ${BUILD_DIR}
-
 # Install mpich
+ARG MPICH_DIR=/opt/mpich
+ARG MPICH_VERSION=4.3.2
 RUN dnf install -y hwloc libnl3 perl
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
@@ -46,6 +44,8 @@ RUN source ${MOOSE_ENV} && \
     mpiexec --version
 
 # Install openmpi
+ARG OPENMPI_DIR=/opt/openmpi
+ARG OPENMPI_VERSION=5.0.9
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     cd ${BUILD_DIR} && \
@@ -76,7 +76,7 @@ RUN source ${MOOSE_ENV} && \
 
 # Expose MPI directories as env vars
 RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-hpcbase/rocky:9.7-gcc13-mpich4.3.2-openmpi5.0.9_0" >> ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:9.7-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_OPENMPI_DIR=${OPENMPI_DIR}" >> ${MOOSE_ENV}
 

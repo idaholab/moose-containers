@@ -1,11 +1,9 @@
 FROM ghcr.io/idaholab/moose-base/rocky:9.7_0
 
-# Versions
-ARG GCC_VERSION=13
-# Path to the moose env script
-ARG MOOSE_ENV=/moose_env.sh
+ARG BUILD_VERSION=0
 
 # GCC 13 and basic build utilities
+ARG GCC_VERSION=13
 RUN dnf install -y gcc-toolset-${GCC_VERSION} gcc-toolset-${GCC_VERSION}-gcc \
     gcc-toolset-${GCC_VERSION}-gcc-gfortran gcc-toolset-${GCC_VERSION}-gcc-c++ \
     gcc-toolset-${GCC_VERSION}-gdb make findutils zlib-devel
@@ -14,6 +12,10 @@ RUN dnf install -y gcc-toolset-${GCC_VERSION} gcc-toolset-${GCC_VERSION}-gcc \
 RUN dnf clean all
 
 # Add to environment
+ARG MOOSE_ENV=/moose_env.sh
 RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-base/rocky:9.7-gcc13_0" >> ${MOOSE_ENV} && \
-    echo "source /opt/rh/gcc-toolset-13/enable" >> ${MOOSE_ENV}
+    echo "# From moose-base/rocky:9.7-gcc${GCC_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    echo "source /opt/rh/gcc-toolset-${GCC_VERSION}/enable" >> ${MOOSE_ENV}
+
+# Make sure GCC version matches as expected
+RUN source ${MOOSE_ENV} && gcc --version | grep -q 13.3.1

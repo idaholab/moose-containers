@@ -1,4 +1,4 @@
-FROM rockylinux/rockylinux:9.7.20251123
+FROM rockylinux/rockylinux:8.10.20240528
 
 # Upgrade base OS
 RUN dnf upgrade -y
@@ -8,8 +8,12 @@ RUN dnf install -y bzip2 git git-lfs tar vim wget rsync hostname jq \
     diffutils file unzip findutils procps-ng xz file which
 
 # Install python
-RUN dnf install -y python python-devel python-pip python-setuptools && \
-    pip3 install pyyaml jinja2
+ARG PYTHON_VERSION=3.12
+RUN dnf install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-devel \
+        python${PYTHON_VERSION}-pip python${PYTHON_VERSION-setuptools} && \
+    alternatives --set python /usr/bin/python${PYTHON_VERSION} && \
+    alternatives --set python3 /usr/bin/python${PYTHON_VERSION} && \
+    pip${PYTHON_VERSION} install pyyaml jinja2
 
 # Install apptainer
 RUN dnf -y install epel-release && dnf -y install apptainer
