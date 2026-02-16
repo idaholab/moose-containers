@@ -7,7 +7,7 @@ ARG BUILD_DIR=/root/build
 RUN mkdir ${BUILD_DIR}
 
 # Setup environment addition
-ARG MPICH_VERSION=5.0.0
+ARG MPICH_VERSION=4.3.2
 ARG ONEAPI_VERSION=2025.3.2
 ARG MOOSE_ENV=/moose_env.sh
 RUN test -f ${MOOSE_ENV} && \
@@ -32,7 +32,6 @@ ARG BUILD_JOBS=4
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
-RUN dnf install -y hwloc libnl3 perl
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     cd ${BUILD_DIR} && \
@@ -50,7 +49,7 @@ RUN source ${MOOSE_ENV} && \
     ../configure \
         CC=icx CXX=icpx FC=ifx F77=ifx F90=ifx \
         --prefix=${MPICH_DIR} \
-        --enable-mpi-abi 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
+        --with-device=ch3:nemesis 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${MPICH_DIR}/logs/build.log && \
     make install 2>&1 | tee ${MPICH_DIR}/logs/install.log && \
     rm -rf ${BUILD_DIR}/${MPICH_NAME}
