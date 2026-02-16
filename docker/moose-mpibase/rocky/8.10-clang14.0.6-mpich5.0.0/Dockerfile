@@ -8,23 +8,21 @@ RUN mkdir ${BUILD_DIR}
 
 # Build jobs
 ARG BUILD_JOBS=4
-# Path to the moose env script
-ARG MOOSE_ENV=/moose_env.sh
 
+# Setup environment addition
+ARG CLANG_VERSION=14.0.6
 ARG MPICH_VERSION=5.0.0
 ARG MOOSE_ENV=/moose_env.sh
+RUN test -f ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:8.10-clang${CLANG_VERSION}-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV}
 
 # Install gcc for building clang
 ARG GCC_VERSION=11
 RUN dnf install -y gcc-toolset-${GCC_VERSION}
-
 # Add new gcc to environment
-RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-mpibase/rocky:8.10-clang${CLANG_VERSION}-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
-    echo "source /opt/rh/gcc-toolset-${GCC_VERSION}/enable" >> ${MOOSE_ENV}
+RUN echo "source /opt/rh/gcc-toolset-${GCC_VERSION}/enable" >> ${MOOSE_ENV}
 
 # Install clang
-ARG CLANG_VERSION=14.0.6
 ARG LLVM_DIR=/opt/llvm
 RUN dnf install -y cmake && \
     source ${MOOSE_ENV} && \
@@ -54,7 +52,6 @@ RUN echo "export PATH=${LLVM_DIR}/bin:\${PATH}" >> ${MOOSE_ENV} && \
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
-ARG MPICH_VERSION=5.0.0
 RUN dnf install -y hwloc libnl3 perl
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
