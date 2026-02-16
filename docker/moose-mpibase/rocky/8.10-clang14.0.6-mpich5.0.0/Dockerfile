@@ -50,7 +50,7 @@ RUN dnf install -y cmake && \
 
 # Add to environment
 RUN echo "export PATH=${LLVM_DIR}/bin:\${PATH}" >> ${MOOSE_ENV} && \
-    echo "export LD_LIBRARY_PATH=${LLVM_DIR}/lib:\${LD_LIBRARY_PATH}"
+    echo "export LD_LIBRARY_PATH=${LLVM_DIR}/lib:\${LD_LIBRARY_PATH}" >> ${MOOSE_ENV}
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
