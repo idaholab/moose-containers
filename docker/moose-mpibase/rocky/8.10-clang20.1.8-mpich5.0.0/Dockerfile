@@ -21,7 +21,7 @@ ARG MOOSE_ENV=/moose_env.sh
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
 ARG MPICH_VERSION=5.0.0
-RUN dnf install -y hwloc libnl3 perl
+RUN dnf install -y patch
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     cd ${BUILD_DIR} && \
@@ -34,6 +34,7 @@ RUN source ${MOOSE_ENV} && \
     tar xf ${MPICH_TAR} -C ${BUILD_DIR} && \
     rm $MPICH_TAR && \
     cd ${BUILD_DIR}/${MPICH_NAME} && \
+    curl -L https://github.com/pmodels/mpich/commit/8da0072533ad8be55fbaccdd9fe917908f1ea8a7.patch | patch -p1 && \
     mkdir build && \
     cd build && \
     ../configure \
