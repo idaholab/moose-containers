@@ -6,30 +6,31 @@ ARG BUILD_VERSION=0
 ARG BUILD_DIR=/root/build
 RUN mkdir ${BUILD_DIR}
 
+# Setup environment addition
+ARG MPICH_VERSION=5.0.0
+ARG ONEAPI_VERSION=2025.3.2
+ARG MOOSE_ENV=/moose_env.sh
+RUN test -f ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:8.10-oneapi${ONEAPI_VERSION}-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV}
+
 # Install intel oneapi
 COPY oneAPI.repo /etc/yum.repos.d/oneAPI.repo
 RUN dnf install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-openmp intel-oneapi-compiler-fortran
 
-# Store the variables we need from the "setvars.sh" script
+# Store the variables we need from the "setvars.sh" script and add to environment
 COPY setup_vars.bash /root/setup_vars.bash
 RUN chmod +x /root/setup_vars.bash && \
     /root/setup_vars.bash /opt/intel/oneapi/moose_setvars.sh && \
-    rm /root/setup_vars.bash
-
-# Add to environment
-ARG MOOSE_ENV=/moose_env.sh
-RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-mpibase/rocky:8.10-oneapi-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    rm /root/setup_vars.bash && \
     echo "source /opt/intel/oneapi/moose_setvars.sh" >> ${MOOSE_ENV}
 
 # Check oneapi version
-RUN source ${MOOSE_ENV} && icx --version | grep -q 2025.3.2
+RUN source ${MOOSE_ENV} && icx --version | grep -q ${ONEAPI_VERSION}
 
 # Build jobs
 ARG BUILD_JOBS=4
 
 # Install mpich
-ARG MPICH_VERSION=5.0.0
 ARG MPICH_DIR=/opt/mpich
 RUN dnf install -y hwloc libnl3 perl
 RUN source ${MOOSE_ENV} && \
