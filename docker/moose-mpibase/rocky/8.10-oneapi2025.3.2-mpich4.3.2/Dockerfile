@@ -57,7 +57,7 @@ RUN ENV_SCRIPT=${MPICH_DIR}/env.sh && \
     echo "export LD_LIBRARY_PATH=${MPICH_DIR}/lib:\${LD_LIBRARY_PATH}" > ${ENV_SCRIPT} && \
     echo "export MANPATH=${MPICH_DIR}/share/man:\${MANPATH}" >> ${ENV_SCRIPT} && \
     echo "export PATH=${MPICH_DIR}/bin:\${PATH}" >> ${ENV_SCRIPT} && \
-    echo "export CC=icx CXX=icpx FC=ifx F77=ifx F90=ifx" >> ${ENV_SCRIPT}
+    echo "export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77" >> ${ENV_SCRIPT}
 RUN source ${MOOSE_ENV} && \
     source ${MPICH_DIR}/env.sh && \
     mpiexec --version
