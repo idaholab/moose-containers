@@ -5,7 +5,7 @@ RUN dnf upgrade -y
 
 # Install basic packages
 RUN dnf install -y bzip2 git git-lfs tar vim wget rsync hostname jq \
-    diffutils file unzip findutils procps-ng xz file which
+    diffutils file unzip findutils procps-ng xz file which time
 
 # Install python
 ARG PYTHON_VERSION=3.12
