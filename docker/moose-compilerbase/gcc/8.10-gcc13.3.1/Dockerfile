@@ -1,6 +1,6 @@
-FROM ghcr.io/idaholab/moose-base/rocky:8.10_0
+FROM ghcr.io/idaholab/moose-base/rocky:8.10_2026.03.09
 
-ARG BUILD_VERSION=0
+ARG BUILD_VERSION=2026.03.09
 
 # GCC 13 and basic build utilities
 ARG GCC_VERSION=13

@@ -1,6 +1,6 @@
 FROM nvidia/cuda:12.9.1-devel-rockylinux8
 
-ARG BUILD_VERSION=0
+ARG BUILD_VERSION=2026.03.09
 
 # Setup build location
 ARG BUILD_DIR=/root/build

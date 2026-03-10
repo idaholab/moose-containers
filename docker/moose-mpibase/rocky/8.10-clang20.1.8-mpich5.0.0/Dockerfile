@@ -1,6 +1,6 @@
-FROM ghcr.io/idaholab/moose-compilerbase/rocky:8.10-gcc13.3.1_0
+FROM ghcr.io/idaholab/moose-base/rocky:8.10_2026.03.09
 
-ARG BUILD_VERSION=0
+ARG BUILD_VERSION=2026.03.09
 
 # Setup build location
 ARG BUILD_DIR=/root/build
@@ -11,12 +11,25 @@ RUN dnf install -y clang.x86_64 clang-devel.x86_64 clang-libs.x86_64 clang-tools
     git-clang-format.x86_64 python3.12-clang.x86_64 clang-analyzer.x86_64 libomp.x86_64 lldb
 
 # Make sure version matches as expected
-RUN clang --version | grep -q 20.1.8
+ARG CLANG_VERSION=20.1.8
+RUN clang --version | grep -q ${CLANG_VERSION}
+
+# Expose GCC toolset
+ARG MOOSE_ENV=/moose_env.sh
+ARG GCC_VERSION=14
+ARG GCC_ENABLE=/opt/rh/gcc-toolset-${GCC_VERSION}/enable
+RUN test -f ${GCC_ENABLE} && \
+    test -f ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:8.10-clang${CLANG_VERSION}-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    echo "source ${GCC_ENABLE}" >> ${MOOSE_ENV}
+
+# Install any missing packages from the GCC toolset
+RUN dnf install -y gcc-toolset-${GCC_VERSION} gcc-toolset-${GCC_VERSION}-gcc \
+    gcc-toolset-${GCC_VERSION}-gcc-gfortran gcc-toolset-${GCC_VERSION}-gcc-c++ \
+    gcc-toolset-${GCC_VERSION}-gdb make findutils zlib-devel
 
 # Build jobs
 ARG BUILD_JOBS=4
-# Path to the moose env script
-ARG MOOSE_ENV=/moose_env.sh
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
@@ -64,9 +77,7 @@ RUN source ${MOOSE_ENV} && \
     mpiexec --version
 
 # Expose MPI directories as env vars
-RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-mpibase/rocky:8.10-clang14-mpich${MPICH_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
-    echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV}
+RUN echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV}
 
 # Cleanup
 RUN dnf clean all && rm -rf ${BUILD_DIR}

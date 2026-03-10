@@ -1,6 +1,6 @@
-FROM ghcr.io/idaholab/moose-compilerbase/rocky:8.10-gcc13.3.1_0
+FROM ghcr.io/idaholab/moose-compilerbase/rocky:8.10-gcc13.3.1_2026.03.09
 
-ARG BUILD_VERSION=0
+ARG BUILD_VERSION=2026.03.09
 
 # Setup build location
 ARG BUILD_DIR=/root/build
