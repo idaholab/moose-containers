@@ -92,3 +92,9 @@ RUN apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf ${BUILD_DIR}
+
+# Expose MPI directories as env vars
+RUN test -f ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/ubuntu:24.04-cuda12.9.1-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV} && \
+    echo "export MOOSE_OPENMPI_DIR=${OPENMPI_DIR}" >> ${MOOSE_ENV}
