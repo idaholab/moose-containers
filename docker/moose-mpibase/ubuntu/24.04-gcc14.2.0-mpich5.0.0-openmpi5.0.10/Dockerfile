@@ -1,12 +1,10 @@
-FROM ghcr.io/idaholab/moose-compilerbase/ubuntu:24.04-gcc14.2.0_2026.03.19
+FROM ghcr.io/idaholab/moose-compilerbase/ubuntu:24.04-gcc14.2.0_2026.03.24
 
-ARG BUILD_VERSION=2026.03.19
+ARG BUILD_VERSION=2026.03.24
 ARG GCC_VERSION=14.2.0
 
-# Setup build location
+# Location for building
 ARG BUILD_DIR=/root/build
-RUN mkdir ${BUILD_DIR}
-
 # Build jobs
 ARG BUILD_JOBS=4
 # Path to the moose env script
@@ -18,11 +16,18 @@ RUN . ${MOOSE_ENV} && \
     g++ --version | grep ${GCC_VERSION} && \
     gfortran --version | grep ${GCC_VERSION}
 
+# Install patch for mpich
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends patch && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
 ARG MPICH_VERSION=5.0.0
-RUN apt-get update && apt-get install -y patch
-RUN . ${MOOSE_ENV} && \
+RUN mkdir ${BUILD_DIR} && \
+    . ${MOOSE_ENV} && \
     cd ${BUILD_DIR} && \
     MPICH_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,2 <<< ${MPICH_VERSION}")" && \
     MPICH_NAME="mpich-${MPICH_VERSION}" && \
@@ -41,7 +46,8 @@ RUN . ${MOOSE_ENV} && \
         --enable-mpi-abi 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${MPICH_DIR}/logs/build.log && \
     make install 2>&1 | tee ${MPICH_DIR}/logs/install.log && \
-    rm -rf ${BUILD_DIR}/${MPICH_NAME}
+    rm -rf ${BUILD_DIR}
+
 # Setup and test environment script
 RUN ENV_SCRIPT=${MPICH_DIR}/env.sh && \
     echo "export LD_LIBRARY_PATH=${MPICH_DIR}/lib:\${LD_LIBRARY_PATH}" > ${ENV_SCRIPT} && \
@@ -58,7 +64,8 @@ RUN ENV_SCRIPT=${MPICH_DIR}/env.sh && \
 # Install openmpi
 ARG OPENMPI_DIR=/opt/openmpi
 ARG OPENMPI_VERSION=5.0.10
-RUN . ${MOOSE_ENV} && \
+RUN mkdir ${BUILD_DIR} && \
+    . ${MOOSE_ENV} && \
     cd ${BUILD_DIR} && \
     OPENMPI_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,2 <<< ${OPENMPI_VERSION}")" && \
     OPENMPI_NAME="openmpi-${OPENMPI_VERSION}" && \
@@ -74,7 +81,7 @@ RUN . ${MOOSE_ENV} && \
     ../configure --prefix=${OPENMPI_DIR} 2>&1 | tee ${OPENMPI_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${OPENMPI_DIR}/logs/build.log && \
     make install 2>&1 | tee ${OPENMPI_DIR}/logs/install.log && \
-    rm -rf ${BUILD_DIR}/${OPENMPI_NAME}
+    rm -rf ${BUILD_DIR}
 # Setup and test environment script
 RUN ENV_SCRIPT=${OPENMPI_DIR}/env.sh && \
     echo "export LD_LIBRARY_PATH=${OPENMPI_DIR}/lib:\${LD_LIBRARY_PATH}" > ${ENV_SCRIPT} && \
@@ -88,12 +95,6 @@ RUN ENV_SCRIPT=${OPENMPI_DIR}/env.sh && \
     mpicc --version | grep ${GCC_VERSION} && \
     mpic++ --version | grep ${GCC_VERSION} && \
     mpifort --version | grep ${GCC_VERSION}
-
-# Cleanup
-RUN apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf ${BUILD_DIR}
 
 # Expose MPI directories as env vars
 RUN test -f ${MOOSE_ENV} && \

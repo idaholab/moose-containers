@@ -1,6 +1,6 @@
-FROM ghcr.io/idaholab/moose-base/ubuntu:24.04-cuda12.9.1_2026.03.19
+FROM ghcr.io/idaholab/moose-base/ubuntu:24.04-cuda12.9.1_2026.03.24
 
-ARG BUILD_VERSION=2026.03.19
+ARG BUILD_VERSION=2026.03.24
 
 # Path to the moose env script
 ARG MOOSE_ENV=/moose_env.sh
@@ -9,10 +9,14 @@ ARG MOOSE_ENV=/moose_env.sh
 ENV GCC_VERSION=13.3.0
 RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
     apt-get update && \
-    apt-get install -y gcc-${GCC_MAJOR_VERSION} \
+    apt-get install -y --no-install-recommends \
+        gcc-${GCC_MAJOR_VERSION} \
         g++-${GCC_MAJOR_VERSION} \
         gfortran-${GCC_MAJOR_VERSION} \
-        make
+        make && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Setup separate compiler environment
 ARG GCC_DIR=/opt/gcc
@@ -29,10 +33,5 @@ RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && 
     gcc --version | grep ${GCC_VERSION} && \
     g++ --version | grep ${GCC_VERSION} && \
     gfortran --version | grep ${GCC_VERSION}
-
-# Cleanup
-RUN apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 

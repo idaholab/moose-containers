@@ -1,40 +1,33 @@
 FROM ubuntu:24.04
 
-# Upgrade base OS
+# Update, install basic packages + python
+ARG PYTHON_VERSION=3.12
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get dist-upgrade -y
-
-# Install basic packages
-RUN apt-get install -y bzip2 git git-lfs tar vim wget rsync hostname jq \
-    diffutils file unzip findutils procps xz-utils file which time emacs curl
-
-# Install basic python dependencies and use this python as default
-ARG PYTHON_VERSION=3.12
-RUN which python${PYTHON_VERSION} && \
-    apt-get install -y python3-yaml python3-jinja2 && \
+    apt-get dist-upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        bzip2 git git-lfs tar vim wget rsync hostname jq diffutils file unzip \
+        findutils procps xz-utils file which time curl ca-certificates zlib1g-dev \
+        python3 python3-yaml python3-jinja2 && \
+    which python${PYTHON_VERSION} && \
     update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 100 && \
-    python --version | grep ${PYTHON_VERSION}
-
-# Setup build location
-ARG BUILD_DIR=/root/build
-RUN mkdir ${BUILD_DIR}
+    python --version | grep ${PYTHON_VERSION} && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install oras
+ARG BUILD_DIR=/root/build
 ARG ORAS_VERSION=1.3.0
 RUN ORAS_TAR=${BUILD_DIR}/oras.tar.gz && \
     ORAS_DIR=${BUILD_DIR}/oras && \
+    mkdir ${BUILD_DIR} && \
     curl -L https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz -o ${ORAS_TAR} && \
     mkdir ${ORAS_DIR} && \
     tar -zxf ${ORAS_TAR} -C ${ORAS_DIR} && \
     rm ${ORAS_TAR} && \
     mv ${ORAS_DIR}/oras /usr/local/bin/ && \
-    rm -rf ${ORAS_DIR}
-
-# Cleanup
-RUN apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    rm -rf ${ORAS_DIR} && \
     rm -rf ${BUILD_DIR}
 
 # Setup empty environment script
