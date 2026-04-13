@@ -1,17 +1,16 @@
-FROM ghcr.io/idaholab/moose-compilerbase/rocky:9.7-gcc13.3.1_2026.04.11
+FROM ghcr.io/idaholab/moose-compilerbase/rocky:8.10-gcc13.3.1_2026.04.11
 
 ARG BUILD_VERSION=2026.04.12
 
 # Path to the moose env script
 ARG MOOSE_ENV=/moose_env.sh
 
-ARG BUILD_JOBS=4
 ARG BUILD_DIR=/root/build
+ARG BUILD_JOBS=4
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
-ARG MPICH_VERSION=4.3.2
-RUN dnf install -y hwloc libnl3 perl && dnf clean all
+ARG MPICH_VERSION=5.0.1
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     mkdir ${BUILD_DIR} && \
@@ -27,7 +26,9 @@ RUN source ${MOOSE_ENV} && \
     cd ${BUILD_DIR}/${MPICH_NAME} && \
     mkdir build && \
     cd build && \
-    ../configure --prefix=${MPICH_DIR} 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
+    ../configure \
+        --prefix=${MPICH_DIR} \
+        --enable-mpi-abi 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${MPICH_DIR}/logs/build.log && \
     make install 2>&1 | tee ${MPICH_DIR}/logs/install.log && \
     rm -rf ${BUILD_DIR}
@@ -42,7 +43,7 @@ RUN source ${MOOSE_ENV} && \
 
 # Install openmpi
 ARG OPENMPI_DIR=/opt/openmpi
-ARG OPENMPI_VERSION=5.0.9
+ARG OPENMPI_VERSION=5.0.10
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     mkdir ${BUILD_DIR} && \
@@ -74,6 +75,6 @@ RUN source ${MOOSE_ENV} && \
 
 # Expose MPI directories as env vars
 RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-mpibase/rocky:9.7-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:8.10-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_OPENMPI_DIR=${OPENMPI_DIR}" >> ${MOOSE_ENV}

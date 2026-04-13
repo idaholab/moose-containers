@@ -1,17 +1,27 @@
-FROM ghcr.io/idaholab/moose-compilerbase/rocky:9.7-gcc13.3.1_2026.04.11
+FROM ghcr.io/idaholab/moose-base/rocky:8.10-cuda12.9.1_2026.04.12
 
 ARG BUILD_VERSION=2026.04.12
 
-# Path to the moose env script
-ARG MOOSE_ENV=/moose_env.sh
+# GCC 13 and basic build utilities
+ARG GCC_VERSION=13
+RUN dnf install -y gcc-toolset-${GCC_VERSION} gcc-toolset-${GCC_VERSION}-gcc \
+        gcc-toolset-${GCC_VERSION}-gcc-gfortran gcc-toolset-${GCC_VERSION}-gcc-c++ \
+        gcc-toolset-${GCC_VERSION}-gdb make findutils zlib-devel && \
+    dnf clean all
 
-ARG BUILD_JOBS=4
+# Add to environment
+ARG MOOSE_ENV=/moose_env.sh
+ARG MPICH_VERSION=5.0.1
+ARG OPENMPI_VERSION=5.0.10
+RUN test -f ${MOOSE_ENV} && \
+    echo "# From moose-mpibase/rocky:8.10-cuda12.9.1-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
+    echo "source /opt/rh/gcc-toolset-${GCC_VERSION}/enable" >> ${MOOSE_ENV}
+
 ARG BUILD_DIR=/root/build
+ARG BUILD_JOBS=4
 
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
-ARG MPICH_VERSION=4.3.2
-RUN dnf install -y hwloc libnl3 perl && dnf clean all
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     mkdir ${BUILD_DIR} && \
@@ -27,7 +37,10 @@ RUN source ${MOOSE_ENV} && \
     cd ${BUILD_DIR}/${MPICH_NAME} && \
     mkdir build && \
     cd build && \
-    ../configure --prefix=${MPICH_DIR} 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
+    ../configure --prefix=${MPICH_DIR} \
+        --with-cuda=${CUDA_DIR} \
+        --enable-mpi-abi \
+        --with-device=ch4:ucx 2>&1 | tee ${MPICH_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${MPICH_DIR}/logs/build.log && \
     make install 2>&1 | tee ${MPICH_DIR}/logs/install.log && \
     rm -rf ${BUILD_DIR}
@@ -38,11 +51,10 @@ RUN ENV_SCRIPT=${MPICH_DIR}/env.sh && \
     echo "export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77" >> ${ENV_SCRIPT}
 RUN source ${MOOSE_ENV} && \
     source ${MPICH_DIR}/env.sh && \
-    mpiexec --version
+    LD_LIBRARY_PATH=${CUDA_DIR}/compat:${LD_LIBRARY_PATH} mpiexec --version
 
 # Install openmpi
 ARG OPENMPI_DIR=/opt/openmpi
-ARG OPENMPI_VERSION=5.0.9
 RUN source ${MOOSE_ENV} && \
     set -o pipefail && \
     mkdir ${BUILD_DIR} && \
@@ -58,7 +70,9 @@ RUN source ${MOOSE_ENV} && \
     cd ${BUILD_DIR}/${OPENMPI_NAME} && \
     mkdir build && \
     cd build && \
-    ../configure --prefix=${OPENMPI_DIR} 2>&1 | tee ${OPENMPI_DIR}/logs/configure.log && \
+    ../configure \
+        --prefix=${OPENMPI_DIR} \
+        --with-cuda=${CUDA_DIR} 2>&1 | tee ${OPENMPI_DIR}/logs/configure.log && \
     make -j ${BUILD_JOBS} 2>&1 | tee ${OPENMPI_DIR}/logs/build.log && \
     make install 2>&1 | tee ${OPENMPI_DIR}/logs/install.log && \
     rm -rf ${BUILD_DIR}
@@ -74,6 +88,5 @@ RUN source ${MOOSE_ENV} && \
 
 # Expose MPI directories as env vars
 RUN test -f ${MOOSE_ENV} && \
-    echo "# From moose-mpibase/rocky:9.7-gcc${GCC_VERSION}-mpich${MPICH_VERSION}-openmpi${OPENMPI_VERSION}_${BUILD_VERSION}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_OPENMPI_DIR=${OPENMPI_DIR}" >> ${MOOSE_ENV}
