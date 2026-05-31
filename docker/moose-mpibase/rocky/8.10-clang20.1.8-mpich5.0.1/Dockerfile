@@ -1,6 +1,6 @@
 FROM ghcr.io/idaholab/moose-base/rocky:8.10_2026.04.12
 
-ARG BUILD_VERSION=2026.04.12
+ARG BUILD_VERSION=2026.04.14
 
 # Install clang
 RUN dnf install -y clang.x86_64 clang-devel.x86_64 clang-libs.x86_64 clang-tools-extra.x86_64 \
