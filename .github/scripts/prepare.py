@@ -6,8 +6,7 @@ import os
 import jinja2
 from tabulate import tabulate
 from typing import Optional, Tuple
-from dataclasses import dataclass
-from datetime import datetime, date
+import datetime
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -30,46 +29,73 @@ REPO = "idaholab/moose-containers"
 """The GitHub repository."""
 
 
+class ContainersException(Exception):
+    def __init__(self, name: str, message: str):
+        super().__init__(f"{CONTAINERS_FILE}: {name}: {message}")
+
+
 def git_show(path: str, ref: str) -> str:
     """Use git to show a file at the given reference."""
     cmd = ["git", "show", f"{ref}:{path}"]
     return subprocess.check_output(cmd, cwd=REPO_ROOT, text=True)
 
 
-@dataclass
 class Container:
     """Data class for a single container to be built."""
 
-    name: str
-    """Name of the container."""
+    def __init__(self, name: str, tags: list[str], date: str):
+        assert isinstance(name, str)
+        assert isinstance(tags, list)
+        assert all(isinstance(v, str) for v in tags)
+        assert isinstance(date, str)
 
-    tags: list[str]
-    """Tags for the container."""
+        self._name: str = name
+        """Name of the container."""
 
-    date: str
-    """The build date."""
+        self._tags: list[str] = tags
+        """Tags for the container."""
 
-    from_container: Optional["Container"] = None
-    """The container this container depends on, if any."""
-
-    def __post_init__(self):
-        assert isinstance(self.name, str)
-        assert isinstance(self.tags, list)
-        assert all(isinstance(v, str) for v in self.tags)
-        assert isinstance(self.date, str)
         try:
-            date_parsed = datetime.strptime(self.date, "%Y%m%d").date()
-        except:
-            raise ValueError(
-                f"{CONTAINERS_FILE}: {self.name}: date={self.date} is invalid"
-            )
-        if date_parsed > date.today():
-            raise ValueError(
-                f"{CONTAINERS_FILE}: {self.name}: date={self.date} is from the future"
-            )
+            date_parsed = datetime.datetime.strptime(date, "%Y%m%d").date()
+        except Exception as e:
+            raise ContainersException(name, f"date='{date}' is invalid") from e
+        if date_parsed > datetime.date.today():
+            raise ContainersException(name, f"date='{self.date}' is from the future")
+
+        self._date: datetime.date = date
+        """The date for this container."""
+
+        self._raw_date: str = date
+        """The raw string date for this container."""
+
+        self._from_container: Optional["Container"] = None
+        """The container this container is built from, if any."""
+
+    @property
+    def name(self) -> str:
+        """The name of the container."""
+        return self._name
+
+    @property
+    def date(self) -> datetime.date:
+        """The date for the container."""
+        return self._date
+
+    @property
+    def raw_date(self) -> str:
+        """The raw (string) date for this container."""
+        return self._raw_date
+
+    @property
+    def from_container(self) -> Optional["Container"]:
+        assert self._from_container is None or isinstance(
+            self._from_container, Container
+        )
+        return self._from_container
 
     @property
     def tag(self) -> str:
+        """Get the tag for this container."""
         parents = []
         parent = self.from_container
         while parent is not None:
@@ -78,13 +104,14 @@ class Container:
 
         parent_tags = []
         for parent in parents[::-1]:
-            parent_tags.extend(parent.tags)
+            parent_tags.extend(parent._tags)
         parent = self.from_container
 
-        tags = parent_tags + self.tags
+        tags = parent_tags + self._tags
         return f"{'-'.join(tags)}-{self.date}"
 
     def get_uri(self, pr: Optional[int] = None, main: bool = False) -> str:
+        """Get the URI for this container."""
         uri = URI_PREFIX
         if pr is not None:
             uri += f"pr-"
@@ -134,10 +161,8 @@ def load_containers(
     for name, from_value in from_values.items():
         from_container = containers.get(from_value)
         if from_container is None:
-            raise ValueError(
-                f"{CONTAINERS_FILE}: {name}: from container {from_value} not found"
-            )
-        containers[name].from_container = from_container
+            raise ContainersException(name, f"from container {from_value} not found")
+        containers[name]._from_container = from_container
 
     return containers
 
@@ -153,7 +178,7 @@ def load_current() -> Tuple[dict[str, Container], dict]:
     return load_containers(containers_template, packages), packages
 
 
-def load_previous(ref: str) -> Tuple[dict, dict]:
+def load_previous(ref: str) -> Tuple[dict[str, Container], dict]:
     """Render a previous containers.yaml template at the given git reference."""
     containers_template = git_show(CONTAINERS_FILE, ref)
     packages = yaml.safe_load(git_show(PACKAGES_FILE, ref))
@@ -277,9 +302,9 @@ def post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     print(f"Posted comment: {response.json()['id']}")
 
 
-def run_with_base(base_ref: str, pr: Optional[int], main: bool = False) -> str:
+def run_with_base(base_ref: str, pr: Optional[int] = None, main: bool = False) -> str:
     assert pr is not None or main
-    assert pr is not None != main
+    assert (pr is not None) != main
 
     current_containers, packages = load_current()
     base_containers, base_packages = load_previous(base_ref)
@@ -293,6 +318,8 @@ def run_with_base(base_ref: str, pr: Optional[int], main: bool = False) -> str:
         tag = container.tag
         base_container = base_containers.get(name)
         if base_container is None or tag != base_container.tag:
+            if base_container.date > container.date:
+                raise ContainersException(name, "date moved back")
             uris[name] = container.get_uri(pr=pr, main=main)
             changed[name] = True
             url = container_url(name, pr=pr is not None, main=main)
