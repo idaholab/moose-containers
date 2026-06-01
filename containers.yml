@@ -54,8 +54,9 @@ moose-mpi-rocky8-clang:
   from: moose-base-rocky8
   tags:
     - "clang{{ package("clang-rocky8") }}"
+    - "gcc{{ package("gcc-rocky8-clang") }}"
     - "mpich{{ package("mpich") }}"
-  date: "20260531"
+  date: "20260601"
 moose-mpi-rocky8-cuda-gcc:
   from: moose-compiler-rocky8-cuda-gcc
   tags:
@@ -71,15 +72,15 @@ moose-mpi-rocky8-gcc:
 moose-mpi-rocky8-gccmin:
   from: moose-base-rocky8
   tags:
-    - "gcc{{ packages_gcc_min_rocky8 }}"
+    - "gcc{{ package("gcc-min-rocky8") }}"
     - "mpich{{ package("mpich") }}"
-  date: "20260531"
+  date: "20260601"
 moose-mpi-rocky8-oneapi:
   from: moose-compiler-rocky8-gcc
   tags:
     - "oneapi{{ package("oneapi") }}"
     - "mpich{{ package("mpich-rocky8-oneapi") }}"
-  date: "20260531"
+  date: "20260601"
 moose-mpi-rocky9-gcc:
   from: moose-compiler-rocky9-gcc
   tags:

@@ -547,3 +547,25 @@ jobs:
   #           BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
   #           MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
   #           OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+
+  finalize:
+    name: "finalize"
+    needs:
+      - moose-mpi-rocky8-clang
+      - moose-mpi-rocky8-cuda-gcc
+      - moose-mpi-rocky8-gcc
+      - moose-mpi-rocky8-gccmin
+      - moose-mpi-rocky8-oneapi
+      - moose-mpi-rocky9-gcc
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-clang.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-cuda-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-gccmin.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-oneapi.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky9-gcc.result)
+    runs-on: ubuntu-slim
+    steps:
+      - name: Finalize
+        run: echo "it worked"
