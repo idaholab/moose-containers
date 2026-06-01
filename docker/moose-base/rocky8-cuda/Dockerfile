@@ -26,6 +26,11 @@ RUN /bin/bash /root/rocky_base.bash "$ROCKY_VERSION" && rm /root/rocky_base.bash
 COPY files/rocky8_python.bash /root/rocky8_python.bash
 RUN /bin/bash /root/rocky8_python.bash && rm /root/rocky8_python.bash
 
+# Install nccl, which was included previously in 12.9 but
+# as of 13.1 it looks like it's not
+RUN dnf install -y libnccl libnccl-devel libnccl-static && \
+    dnf clean all
+
 # Add to environment
 ARG URI
 ARG MOOSE_ENV=/moose_env.sh
