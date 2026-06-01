@@ -14,7 +14,10 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 """Root path to the repo."""
 
-URI_PREFIX = "ghcr.io/idaholab/moose-containers/"
+REPO = "idaholab/moose-containers"
+"""The GitHub repository."""
+
+URI_PREFIX = f"ghcr.io/{REPO}"
 """URI prefix for container pushes."""
 
 CONTAINERS_FILE = "containers.yml"
@@ -25,9 +28,6 @@ PACKAGES_FILE = "packages.yml"
 
 GITHUB_ACTION = os.environ.get("GITHUB_ACTIONS") == "true"
 """Whether or not we're executed in a github action."""
-
-REPO = "idaholab/moose-containers"
-"""The GitHub repository."""
 
 
 class ContainersException(Exception):
@@ -61,7 +61,7 @@ class Container:
         except Exception as e:
             raise ContainersException(name, f"date='{date}' is invalid") from e
         if date_parsed > datetime.date.today():
-            raise ContainersException(name, f"date='{self.date}' is from the future")
+            raise ContainersException(name, f"date='{date}' is from the future")
 
         self._date: datetime.date = date
         """The date for this container."""
@@ -71,6 +71,15 @@ class Container:
 
         self._from_container: Optional["Container"] = None
         """The container this container is built from, if any."""
+
+        self._pr: Optional[int] = None
+        """Whether or not this container has a PR name/tag. Used in the URI."""
+
+        self._main: bool = False
+        """Whether or not this container has a main name/tag. Used in the URI."""
+
+        self._release: bool = False
+        """Whether or not this container has a release name/tag. Used in the URI."""
 
     @property
     def name(self) -> str:
@@ -109,21 +118,62 @@ class Container:
         parent = self.from_container
 
         tags = parent_tags + self._tags
-        return f"{'-'.join(tags)}-{self.date}"
+        tag = f"{'-'.join(tags)}-{self.date}"
+        if self._pr is not None:
+            assert not self._main
+            assert not self._release
+            tag = f"pr{self._pr}-{tag}"
+        return tag
 
-    def get_uri(self, pr: Optional[int] = None, main: bool = False) -> str:
+    @property
+    def repo(self) -> str:
+        """Get the repo for this container."""
+        prefix = ""
+        if self._pr is not None:
+            assert not self._main
+            assert not self._release
+            prefix += f"pr-"
+        elif self._main:
+            assert not self._release
+            prefix += "main-"
+        return f"{prefix}{self.name}"
+
+    @property
+    def uri(self) -> str:
         """Get the URI for this container."""
-        uri = URI_PREFIX
-        if pr is not None:
-            uri += f"pr-"
-            assert not main
-        elif main:
-            uri += "main-"
-        uri += f"{self.name}:"
-        if pr is not None:
-            uri += f"pr{pr}-"
-        uri += self.tag
-        return uri
+        return f"{URI_PREFIX}/{self.repo}:{self.tag}"
+
+    @property
+    def url(self) -> str:
+        """Get the URL on GitHub for this repo."""
+        return (
+            f"https://github.com/{REPO}/pkgs/container/moose-containers%2F{self.repo}"
+        )
+
+    def set_from_container(self, from_container: "Container"):
+        """Set the from container. Can only be called once."""
+        assert isinstance(from_container, Container)
+        assert self._from_container is None
+        self._from_container = from_container
+
+    def set_pr(self, pr: int):
+        assert isinstance(pr, int)
+        assert self._pr is None
+        assert not self._main
+        assert not self._release
+        self._pr = pr
+
+    def set_main(self):
+        assert self._pr is None
+        assert not self._main
+        assert not self._release
+        self._main = True
+
+    def set_release(self):
+        assert self._pr is None
+        assert not self._main
+        assert not self._release
+        self._release = True
 
 
 def load_containers(
@@ -163,7 +213,7 @@ def load_containers(
         from_container = containers.get(from_value)
         if from_container is None:
             raise ContainersException(name, f"from container {from_value} not found")
-        containers[name]._from_container = from_container
+        containers[name].set_from_container(from_container)
 
     return containers
 
@@ -184,13 +234,6 @@ def load_previous(ref: str) -> Tuple[dict[str, Container], dict]:
     containers_template = git_show(CONTAINERS_FILE, ref)
     packages = yaml.safe_load(git_show(PACKAGES_FILE, ref))
     return load_containers(containers_template, packages), packages
-
-
-def container_url(name: str, pr: bool = False, main: bool = False) -> str:
-    """Get the URL to a container."""
-    assert pr != main
-    prefix = "pr-" if pr else "main-"
-    return f"https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2F{prefix}{name}"
 
 
 def parse_args():
@@ -303,30 +346,47 @@ def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     print(f"Posted comment: {response.json()['id']}")
 
 
-def github_container_exists(
-    container: Container,
-    github_token: str,
-    pr: Optional[int] = None,
-    main: bool = False,
-):
-    assert pr is not None or main
-    assert (pr is not None) != main
+def github_get_ghcr_token(github_token: str, name: str):
+    response = requests.get(
+        "https://ghcr.io/token",
+        params={"service": "ghcr.io", "scope": f"repository:{REPO}/{name}:pull"},
+        auth=("token", github_token),
+    )
+    response.raise_for_status()
+    return response.json().get("token")
 
-    uri = container.get_uri(pr=pr, main=main)
-    repo_and_tag = uri.split("/")[-1].split(":")
-    repo = repo_and_tag[0]
-    tag = repo_and_tag[1]
 
-    token = base64.b64encode(github_token.encode()).decode()
-    headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.docker.distribution.manifest.v2+json",
+def github_ghcr_token(github_token: str) -> str:
+    response = requests.get(
+        "https://ghcr.io/token",
+        params={
+            "service": "ghcr.io",
+            "scope": f"repository:{REPO}/moose-containers:pull",
+        },
+        auth=("token", github_token),
+    )
+    response.raise_for_status()
+    return response.json()["token"]
+
+
+def github_container_exists(container: Container, ghcr_token: str):
+    """Check if the given container exists on GitHub."""
+    url = f"https://ghcr.io/v2/{REPO}/{container.repo}/manifests/{container.tag}"
+    headers = {
+        "Authorization": f"Bearer {ghcr_token}",
+        "Accept": "application/vnd.oci.image.index.v1+json",
     }
-    url = f"https://ghcr.io/v2/idaholab/moose-containers/{repo}/manifests/{tag}"
     response = requests.get(url, headers=headers)
-    if response.status_code not in [200, 404]:
-        response.raise_for_status()
-    return response.status_code == 200
+    if response.status_code == 200:
+        return True
+    if (
+        response.status_code == 404
+        and (errors := response.json().get("errors")) is not None
+        and len(errors) == 1
+        and errors[0].get("code") == "MANIFEST_UNKNOWN"
+    ):
+        return False
+    response.raise_for_status()
 
 
 def run_with_base(
@@ -341,6 +401,17 @@ def run_with_base(
     current_containers, packages = load_current()
     base_containers, base_packages = load_previous(base_ref)
 
+    # Set main state for base containers
+    [container.set_main() for container in base_containers.values()]
+    # Set main state for non-PR containers
+    if main:
+        [container.set_main() for container in current_containers.values()]
+
+    # Get a ghcr token for determining packing existance
+    ghcr_token = None
+    if github_token:
+        ghcr_token = github_ghcr_token(github_token)
+
     # Determine changed containers
     uris = {}
     changed = {}
@@ -350,24 +421,27 @@ def run_with_base(
         tag = container.tag
         base_container = base_containers.get(name)
 
+        if base_container is not None and base_container.date > container.date:
+            raise ContainersException(name, "date moved back")
+
         build = base_container is None or tag != base_container.tag
+        if build and pr is not None:
+            container.set_pr(pr)
+
         if (
             not build
-            and GITHUB_ACTION
             and github_token
             and main
-            and github_container_exists(container, github_token, main=main)
+            and not github_container_exists(container, ghcr_token)
         ):
-            print("::warning::Container does not exist on main; building")
+            print(f"::warning::Container {container.uri} does not exist; building")
             build = True
 
         if build:
             if base_container.date > container.date:
                 raise ContainersException(name, "date moved back")
-            uris[name] = container.get_uri(pr=pr, main=main)
             changed[name] = True
-            url = container_url(name, pr=pr is not None, main=main)
-            summary_name = f"[`{name}`]({url})"
+            summary_name = f"[`{name}`]({container.url})"
             build_summary.append(
                 (
                     summary_name,
@@ -376,8 +450,9 @@ def run_with_base(
                 )
             )
         else:
-            uris[name] = container.get_uri(main=True)
             changed[name] = False
+
+        uris[name] = container.uri
 
     # Determine changed packages
     package_summary = []

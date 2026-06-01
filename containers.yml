@@ -12,15 +12,15 @@ moose-base-rocky9:
   tags:
     - "{{ package("rocky9") }}"
   date: "20260531"
-moose-base-ubuntu24:
-  tags:
-    - "{{ package("ubuntu24") }}"
-  date: "20260531"
-moose-base-ubuntu24-cuda:
-  tags:
-    - "{{ package("ubuntu24") }}"
-    - "cuda{{ package("cuda") }}"
-  date: "20260531"
+# moose-base-ubuntu24:
+#   tags:
+#     - "{{ package("ubuntu24") }}"
+#   date: "20260531"
+# moose-base-ubuntu24-cuda:
+#   tags:
+#     - "{{ package("ubuntu24") }}"
+#     - "cuda{{ package("cuda") }}"
+#   date: "20260531"
 
 # moose-compiler
 moose-compiler-rocky8-cuda-gcc:
@@ -38,16 +38,16 @@ moose-compiler-rocky9-gcc:
   tags:
     - "gcc{{ package("gcc-rocky9") }}"
   date: "20260531"
-moose-compiler-ubuntu24-gcc:
-  from: moose-base-ubuntu24
-  tags:
-    - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260531"
-moose-compiler-ubuntu24-cuda-gcc:
-  from: moose-base-ubuntu24-cuda
-  tags:
-    - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260531"
+# moose-compiler-ubuntu24-gcc:
+#   from: moose-base-ubuntu24
+#   tags:
+#     - "gcc{{ package("gcc-ubuntu24") }}"
+#   date: "20260531"
+# moose-compiler-ubuntu24-cuda-gcc:
+#   from: moose-base-ubuntu24-cuda
+#   tags:
+#     - "gcc{{ package("gcc-ubuntu24") }}"
+#   date: "20260531"
 
 # moose-mpi
 moose-mpi-rocky8-clang:
@@ -86,15 +86,15 @@ moose-mpi-rocky9-gcc:
     - "mpich{{ package("mpich-rocky9") }}"
     - "openmpi{{ package("openmpi") }}"
   date: "20260531"
-moose-mpi-ubuntu24-cuda-gcc:
-  from: moose-compiler-ubuntu24-cuda-gcc
-  tags:
-    - "mpich{{ package("mpich") }}"
-    - "openmpi{{ package("openmpi") }}"
-  date: "20260531"
-moose-mpi-ubuntu24-gcc:
-  from: moose-compiler-ubuntu24-gcc
-  tags:
-    - "mpich{{ package("mpich") }}"
-    - "openmpi{{ package("openmpi") }}"
-  date: "20260531"
+# moose-mpi-ubuntu24-cuda-gcc:
+#   from: moose-compiler-ubuntu24-cuda-gcc
+#   tags:
+#     - "mpich{{ package("mpich") }}"
+#     - "openmpi{{ package("openmpi") }}"
+#   date: "20260531"
+# moose-mpi-ubuntu24-gcc:
+#   from: moose-compiler-ubuntu24-gcc
+#   tags:
+#     - "mpich{{ package("mpich") }}"
+#     - "openmpi{{ package("openmpi") }}"
+#   date: "20260531"
