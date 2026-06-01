@@ -84,11 +84,18 @@ jobs:
         shell: bash
         run: |
           prepare_cmd=("python" "./.github/scripts/prepare.py")
-          prepare_args=("${{ github.event.pull_request.base.sha }}" "--github-token" "${{ secrets.GITHUB_TOKEN }}")
+          prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
-            "${prepare_cmd[@]}" pr "${{ github.event.pull_request.number }}" "${prepare_args[@]}"
+            "${prepare_cmd[@]}" \
+              pr \
+              "${{ github.event.pull_request.number }}" \
+              "${{ github.event.pull_request.base.sha }}" \
+              "${prepare_args[@]}"
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
-            "${prepare_cmd[@]}" push "${prepare_args[@]}"
+            "${prepare_cmd[@]}" \
+              push \
+              "${{ github.event.before }}" \
+              "${prepare_args[@]}"
           fi
 
   moose-base-rocky8:
