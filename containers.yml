@@ -1,0 +1,23 @@
+# moose-base
+moose-base-rocky8: {{ packages_rocky8 }}-20260531
+moose-base-rocky8-cuda: {{ packages_rocky8 }}-cuda{{ packages_cuda }}-20260531
+moose-base-rocky9: {{ packages_rocky9 }}-20260531
+# moose-base-ubuntu24: {{ packages_ubuntu24 }}-20260531
+# moose-base-ubuntu24-cuda: {{ packages_ubuntu24 }}-cuda{{ packages_cuda }}-20260531
+
+# moose-compiler
+moose-compiler-rocky8-cuda-gcc: {{ packages_rocky8 }}-cuda{{ packages_cuda }}-gcc{{ packages_gcc_rocky8 }}-20260531
+moose-compiler-rocky8-gcc: {{ packages_rocky8 }}-gcc{{ packages_gcc_rocky8 }}-20260531
+moose-compiler-rocky9-gcc: {{ packages_rocky9 }}-gcc{{ packages_gcc_rocky9 }}-20260531
+# moose-compiler-ubuntu24-gcc: {{ packages_ubuntu24 }}-gcc{{ packages_gcc_ubuntu24 }}-20260531
+# moose-compiler-ubuntu24-cuda-gcc: {{ packages_ubuntu24 }}-cuda{{ packages_cuda }}-gcc{{ packages_gcc_ubuntu24 }}-20260531
+
+# moose-mpi
+moose-mpi-rocky8-clang: {{ packages_rocky8 }}-clang{{ packages_clang_rocky8 }}-gcc{{ packages_gcc_rocky8_clang }}-mpich{{ packages_mpich }}-20260531
+moose-mpi-rocky8-cuda-gcc: {{ packages_rocky8 }}-cuda{{ packages_cuda }}-gcc{{ packages_gcc_rocky8 }}-mpich{{ packages_mpich }}-openmpi{{ packages_openmpi }}-20260531
+moose-mpi-rocky8-gcc: {{ packages_rocky8 }}-gcc{{ packages_gcc_rocky8 }}-mpich{{ packages_mpich }}-openmpi{{ packages_openmpi }}-20260531
+moose-mpi-rocky8-gccmin: {{ packages_rocky8 }}-gcc{{ packages_gcc_min_rocky8 }}-mpich{{ packages_mpich }}-20260531
+moose-mpi-rocky8-oneapi: {{ packages_rocky8 }}-oneapi{{ packages_oneapi }}-gcc{{ packages_gcc_rocky8 }}-mpich{{ mpich_rocky8_oneapi }}-20260531
+moose-mpi-rocky9-gcc: {{ packages_rocky9 }}-gcc{{ packages_gcc_rocky9 }}-mpich{{ packages_mpich_rocky9 }}-openmpi{{ packages_openmpi }}-20260531
+# moose-mpi-ubuntu24-cuda-gcc: {{ packages_ubuntu24 }}-cuda{{ packages_cuda }}-gcc{{ packages_gcc_rocky8 }}-mpich{{ packages_mpich }}-openmpi{{ packages_openmpi }}-20260531
+# moose-mpi-ubuntu24-gcc: {{ packages_ubuntu24 }}-gcc{{ packages_gcc_rocky8 }}-mpich{{ packages_mpich }}-openmpi{{ packages_openmpi }}-20260531

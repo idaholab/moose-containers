@@ -1,0 +1,23 @@
+# operating system versions
+rocky8: "8.10"
+rocky9: "9.7"
+ubuntu24: "24.04"
+
+# version defaults
+cuda: "13.1.2"
+mpich: "5.0.1"
+openmpi: "5.0.10"
+oneapi: "2026.0.0"
+oras: "1.3.2"
+
+# compiler versions
+clang_rocky8: "21.1.8"
+gcc_min_rocky8: "9.2.1"
+gcc_rocky8: "13.3.1"
+gcc_rocky9: "13.3.1"
+gcc_ubuntu24: "14.2.0"
+gcc_rocky8_clang: "15.2.1"
+
+# alternate versions
+mpich_rocky8_oneapi: "4.3.2"
+mpich_rocky9: "4.3.2"
