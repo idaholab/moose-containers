@@ -303,8 +303,8 @@ def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
 
 
 def github_container_exists(
-    github_token: str,
     container: Container,
+    github_token: str,
     pr: Optional[int] = None,
     main: bool = False,
 ):
@@ -348,7 +348,7 @@ def run_with_base(
             and GITHUB_ACTION
             and github_token
             and main
-            and github_container_exists(main=main, github_token=github_token)
+            and github_container_exists(container, github_token, main=main)
         ):
             print("::warning::Container does not exist on main; building")
             build = True
