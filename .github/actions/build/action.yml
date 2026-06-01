@@ -31,11 +31,15 @@ runs:
       id: prepare
       shell: bash
       run: |
+        echo "::group::Determine URI prefix"
+        uri="${{ inputs.uri }}"
+        uri_prefix="${uri%%:*}"
+        echo "uri_prefix=${uri_prefix}"
+        echo "::endgroup::"
+
         echo "::group::Determine cache URI"
         cache_uri=
         if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
-          uri="${{ inputs.uri }}"
-          uri_prefix="${uri%%:*}"
           cache_uri="${uri_prefix}:pr${{ github.event.pull_request.number }}-cache"
         fi
         echo "cache_uri=${cache_uri}"
@@ -62,6 +66,20 @@ runs:
           echo "cache_to=" >> $GITHUB_OUTPUT
         fi
         echo "::endgroup::"
+
+        echo "::group::Determine tags"
+        if [ "$GITHUB_EVENT_NAME" == "push" ]; then
+          {
+            echo "tags<<EOF"
+            echo "${{ inputs.uri }}"
+            echo "${uri_prefix}:latest"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        else
+          echo "tags=${{ inputs.uri }}" >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+
     - name: Log in to GHCR
       uses: docker/login-action@v4
       with:
@@ -78,7 +96,7 @@ runs:
         context: ./${{ inputs.context }}
         file: ${{ inputs.file }}
         push: true
-        tags: ${{ inputs.uri }}
+        tags: ${{ steps.prepare.outputs.tags }}
         cache-from: ${{ steps.prepare.outputs.cache_from }}
         cache-to: ${{ steps.prepare.outputs.cache_to }}
         build-args: |
