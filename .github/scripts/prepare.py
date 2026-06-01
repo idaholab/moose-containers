@@ -403,9 +403,6 @@ def run_with_base(
 
     # Set main state for base containers
     [container.set_main() for container in base_containers.values()]
-    # Set main state for non-PR containers
-    if main:
-        [container.set_main() for container in current_containers.values()]
 
     # Get a ghcr token for determining packing existance
     ghcr_token = None
@@ -427,6 +424,8 @@ def run_with_base(
         build = base_container is None or tag != base_container.tag
         if build and pr is not None:
             container.set_pr(pr)
+        else:
+            container.set_main()
 
         if (
             not build
@@ -446,7 +445,7 @@ def run_with_base(
                 (
                     summary_name,
                     f"`{base_container.tag}`" if base_container.tag else "",
-                    f"`{tag}`",
+                    f"`{container.uri}`",
                 )
             )
         else:
@@ -466,7 +465,7 @@ def run_with_base(
     build_output = "## Builds\n\n"
     if build_summary:
         build_output += tabulate(
-            build_summary, headers=["container", "base tag", "tag"], tablefmt="github"
+            build_summary, headers=["container", "base tag", "uri"], tablefmt="github"
         )
     else:
         build_output += "No containers to build"
