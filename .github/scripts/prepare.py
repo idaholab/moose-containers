@@ -259,7 +259,7 @@ def get_github_headers(github_token: str) -> dict:
     }
 
 
-def get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[str]:
+def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[str]:
     """Find a previous comment from this job by looking for our marker."""
     url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
 
@@ -278,7 +278,7 @@ def get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[str]:
     return None
 
 
-def delete_pr_comment(comment_id: int, github_token: str):
+def github_delete_pr_comment(comment_id: int, github_token: str):
     """Delete a GitHub comment by ID."""
     url = f"https://api.github.com/repos/{REPO}/issues/comments/{comment_id}"
     response = requests.delete(url, headers=get_github_headers(github_token))
@@ -286,12 +286,12 @@ def delete_pr_comment(comment_id: int, github_token: str):
     print(f"Deleted previous comment {comment_id}")
 
 
-def post_pr_comment(pr: int, body: str, marker: str, github_token: str):
+def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     """Post a new comment to the PR, deleting the old one with the same marker."""
-    existing_id = get_pr_comment(pr, marker, github_token)
+    existing_id = github_get_pr_comment(pr, marker, github_token)
 
     if existing_id:
-        delete_pr_comment(existing_id, github_token)
+        github_delete_pr_comment(existing_id, github_token)
 
     url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
     payload = {"body": f"{marker}\n{body}"}
@@ -302,7 +302,31 @@ def post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     print(f"Posted comment: {response.json()['id']}")
 
 
-def run_with_base(base_ref: str, pr: Optional[int] = None, main: bool = False) -> str:
+def github_container_exists(
+    github_token: str,
+    container: Container,
+    pr: Optional[int] = None,
+    main: bool = False,
+):
+    assert pr is not None or main
+    assert (pr is not None) != main
+
+    uri = container.get_uri(pr=pr, main=main)
+    repo_and_tag = uri.split("/")[-1].split(":")
+    repo = repo_and_tag[0]
+    tag = repo_and_tag[1]
+
+    url = f"https://ghcr.io/v2/idaholab/moose-containers/{repo}/manifests/{tag}"
+    response = requests.get(url, headers=get_github_headers(github_token))
+    return response.status_code == 200
+
+
+def run_with_base(
+    base_ref: str,
+    pr: Optional[int] = None,
+    main: bool = False,
+    github_token: Optional[str] = None,
+) -> str:
     assert pr is not None or main
     assert (pr is not None) != main
 
@@ -317,7 +341,19 @@ def run_with_base(base_ref: str, pr: Optional[int] = None, main: bool = False) -
         container = current_containers[name]
         tag = container.tag
         base_container = base_containers.get(name)
-        if base_container is None or tag != base_container.tag:
+
+        build = base_container is None or tag != base_container.tag
+        if (
+            not build
+            and GITHUB_ACTION
+            and github_token
+            and main
+            and github_container_exists(main=main, github_token=github_token)
+        ):
+            print("::warning::Container does not exist on main; building")
+            build = True
+
+        if build:
             if base_container.date > container.date:
                 raise ContainersException(name, "date moved back")
             uris[name] = container.get_uri(pr=pr, main=main)
@@ -393,18 +429,18 @@ def action_pr(args: argparse.Namespace):
     pr = args.pr
     github_token = args.github_token
 
-    result = run_with_base(args.base_ref, pr)
+    result = run_with_base(args.base_ref, pr, github_token=github_token)
 
     # Pull request comment
     if GITHUB_ACTION and github_token:
         print("::group::Post pull request comment")
         marker = "<!-- prepare summary -->"
-        post_pr_comment(pr, result, marker, github_token)
+        github_post_pr_comment(pr, result, marker, github_token)
         print("::endgroup::")
 
 
 def action_push(args: argparse.Namespace):
-    run_with_base(args.base_ref, main=True)
+    run_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
 def action_release(args: argparse.Namespace):
