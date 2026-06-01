@@ -316,8 +316,14 @@ def github_container_exists(
     repo = repo_and_tag[0]
     tag = repo_and_tag[1]
 
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.docker.distribution.manifest.v2+json",
+    }
     url = f"https://ghcr.io/v2/idaholab/moose-containers/{repo}/manifests/{tag}"
-    response = requests.get(url, headers=get_github_headers(github_token))
+    response = requests.get(url, headers=headers)
+    if response.status_code not in [200, 404]:
+        response.raise_for_status()
     return response.status_code == 200
 
 
