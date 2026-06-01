@@ -1,4 +1,5 @@
 import argparse
+import base64
 import requests
 import subprocess
 import yaml
@@ -316,8 +317,9 @@ def github_container_exists(
     repo = repo_and_tag[0]
     tag = repo_and_tag[1]
 
-    headers = {
-        "Authorization": f"Bearer {github_token}",
+    token = base64.b64encode(github_token.encode()).decode()
+    headers={
+        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.docker.distribution.manifest.v2+json",
     }
     url = f"https://ghcr.io/v2/idaholab/moose-containers/{repo}/manifests/{tag}"
