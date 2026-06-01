@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       contents: read
+      packages: read
       pull-requests: write
     outputs:
       changed-moose-base-rocky8: ${{ steps.parse.outputs.changed-moose-base-rocky8 }}
