@@ -455,11 +455,13 @@ def run_with_base(
 
     # Determine changed packages
     package_summary = []
-    for name in sorted(packages):
-        value = packages[name]
+    for name in sorted(packages.keys() | base_packages.keys()):
+        value = packages.get(name)
         base_value = base_packages.get(name)
-        if base_value is None or value != base_value:
-            package_summary.append((f"`{name}`", f"`{value}`", f"`{base_value}"))
+        if value != base_value:
+            value_output = f"`{value}`" if value is not None else "REMOVED"
+            base_value_output = f"`{base_value}`" if base_value is not None else "ADDED"
+            package_summary.append((f"`{name}`", base_value_output, value_output))
 
     # Build summary table
     build_output = "## Builds\n\n"
