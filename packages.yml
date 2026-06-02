@@ -12,7 +12,7 @@ oras: "1.3.2"
 
 # compiler versions
 clang-rocky8: "21.1.8"
-gcc-min-rocky8: "9.2.1"
+gcc-min-rocky8: "10.3.1"
 gcc-rocky8: "13.3.1"
 gcc-rocky9: "13.3.1"
 gcc-ubuntu24: "14.2.0"
