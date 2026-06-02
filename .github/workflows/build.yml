@@ -475,7 +475,7 @@ jobs:
           build-args: |
             BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-rocky8-gcc }}
             ONEAPI_VERSION=${{ needs.prepare.outputs.package-oneapi }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich-rocky8-oneapi }}
+            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
 
   moose-mpi-rocky9-gcc:
     name: "moose-mpi-rocky9-gcc"
