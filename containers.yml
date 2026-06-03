@@ -78,7 +78,7 @@ moose-mpi-rocky8-gccmin:
     - "gcc{{ package("gcc-min-rocky8") }}"
     - "mpich{{ package("mpich") }}"
   release: true
-  date: "20260602"
+  date: "20260603"
 moose-mpi-rocky8-oneapi:
   from: moose-compiler-rocky8-gcc
   tags:
