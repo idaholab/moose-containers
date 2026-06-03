@@ -5,6 +5,7 @@ import subprocess
 import yaml
 import os
 import jinja2
+from copy import deepcopy
 from tabulate import tabulate
 from typing import Optional, Tuple
 import datetime
@@ -44,11 +45,12 @@ def git_show(path: str, ref: str) -> str:
 class Container:
     """Data class for a single container to be built."""
 
-    def __init__(self, name: str, tags: list[str], date: str):
+    def __init__(self, name: str, tags: list[str], date: str, release: bool = False):
         assert isinstance(name, str)
         assert isinstance(tags, list)
         assert all(isinstance(v, str) for v in tags)
         assert isinstance(date, str)
+        assert isinstance(release, bool)
 
         self._name: str = name
         """Name of the container."""
@@ -63,22 +65,25 @@ class Container:
         if date_parsed > datetime.date.today():
             raise ContainersException(name, f"date='{date}' is from the future")
 
-        self._date: datetime.date = date
+        self._date: datetime.date = date_parsed
         """The date for this container."""
 
         self._raw_date: str = date
         """The raw string date for this container."""
 
+        self._release: bool = release
+        """Whether or not this container should be released."""
+
         self._from_container: Optional["Container"] = None
         """The container this container is built from, if any."""
 
-        self._pr: Optional[int] = None
+        self._pr_tag: Optional[int] = None
         """Whether or not this container has a PR name/tag. Used in the URI."""
 
-        self._main: bool = False
+        self._main_tag: bool = False
         """Whether or not this container has a main name/tag. Used in the URI."""
 
-        self._release: bool = False
+        self._release_tag: bool = False
         """Whether or not this container has a release name/tag. Used in the URI."""
 
     @property
@@ -95,6 +100,11 @@ class Container:
     def raw_date(self) -> str:
         """The raw (string) date for this container."""
         return self._raw_date
+
+    @property
+    def release(self) -> bool:
+        """Whether or not this container should be released."""
+        return self._release
 
     @property
     def from_container(self) -> Optional["Container"]:
@@ -118,23 +128,23 @@ class Container:
         parent = self.from_container
 
         tags = parent_tags + self._tags
-        tag = f"{'-'.join(tags)}-{self.date}"
-        if self._pr is not None:
-            assert not self._main
-            assert not self._release
-            tag = f"pr{self._pr}-{tag}"
+        tag = f"{'-'.join(tags)}-{self.raw_date}"
+        if self._pr_tag is not None:
+            assert not self._main_tag
+            assert not self._release_tag
+            tag = f"pr{self._pr_tag}-{tag}"
         return tag
 
     @property
     def repo(self) -> str:
         """Get the repo for this container."""
         prefix = ""
-        if self._pr is not None:
-            assert not self._main
-            assert not self._release
+        if self._pr_tag is not None:
+            assert not self._main_tag
+            assert not self._release_tag
             prefix += f"pr-"
-        elif self._main:
-            assert not self._release
+        elif self._main_tag:
+            assert not self._release_tag
             prefix += "main-"
         return f"{prefix}{self.name}"
 
@@ -150,30 +160,33 @@ class Container:
             f"https://github.com/{REPO}/pkgs/container/moose-containers%2F{self.repo}"
         )
 
+    def exists(self, ghcr_token: str) -> bool:
+        return github_container_exists(self, ghcr_token)
+
     def set_from_container(self, from_container: "Container"):
         """Set the from container. Can only be called once."""
         assert isinstance(from_container, Container)
         assert self._from_container is None
         self._from_container = from_container
 
-    def set_pr(self, pr: int):
+    def set_pr_tag(self, pr: int):
         assert isinstance(pr, int)
-        assert self._pr is None
-        assert not self._main
-        assert not self._release
-        self._pr = pr
+        assert self._pr_tag is None
+        assert not self._main_tag
+        assert not self._release_tag
+        self._pr_tag = pr
 
-    def set_main(self):
-        assert self._pr is None
-        assert not self._main
-        assert not self._release
-        self._main = True
+    def set_main_tag(self):
+        assert self._pr_tag is None
+        assert not self._main_tag
+        assert not self._release_tag
+        self._main_tag = True
 
-    def set_release(self):
-        assert self._pr is None
-        assert not self._main
-        assert not self._release
-        self._release = True
+    def set_release_tag(self):
+        assert self._pr_tag is None
+        assert not self._main_tag
+        assert not self._release_tag
+        self._release_tag = True
 
 
 def load_containers(
@@ -272,6 +285,7 @@ def parse_args():
     add_common(push_parser)
 
     release_parser = action_parser.add_parser("release", parents=[parent])
+
     return parser.parse_args()
 
 
@@ -303,7 +317,7 @@ def get_github_headers(github_token: str) -> dict:
     }
 
 
-def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[str]:
+def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[int]:
     """Find a previous comment from this job by looking for our marker."""
     url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
 
@@ -314,7 +328,9 @@ def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[s
 
         for comment in comments:
             if marker in comment["body"]:
-                return comment["id"]
+                id = comment["id"]
+                assert isinstance(id, int)
+                return id
 
         # Handle pagination
         url = response.links.get("next", {}).get("url")
@@ -334,7 +350,7 @@ def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     """Post a new comment to the PR, deleting the old one with the same marker."""
     existing_id = github_get_pr_comment(pr, marker, github_token)
 
-    if existing_id:
+    if existing_id is not None:
         github_delete_pr_comment(existing_id, github_token)
 
     url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
@@ -369,7 +385,7 @@ def github_ghcr_token(github_token: str) -> str:
     return response.json()["token"]
 
 
-def github_container_exists(container: Container, ghcr_token: str):
+def github_container_exists(container: Container, ghcr_token: str) -> bool:
     """Check if the given container exists on GitHub."""
     url = f"https://ghcr.io/v2/{REPO}/{container.repo}/manifests/{container.tag}"
     headers = {
@@ -387,6 +403,7 @@ def github_container_exists(container: Container, ghcr_token: str):
     ):
         return False
     response.raise_for_status()
+    return False
 
 
 def run_with_base(
@@ -402,7 +419,7 @@ def run_with_base(
     base_containers, base_packages = load_previous(base_ref)
 
     # Set main state for base containers
-    [container.set_main() for container in base_containers.values()]
+    [container.set_main_tag() for container in base_containers.values()]
 
     # Get a ghcr token for determining packing existance
     ghcr_token = None
@@ -413,38 +430,48 @@ def run_with_base(
     uris = {}
     changed = {}
     build_summary = []
+    unreleased_summary = []
     for name in sorted(current_containers):
         container = current_containers[name]
         tag = container.tag
         base_container = base_containers.get(name)
+
+        # Release version of the container, for checking status
+        release_container = None
+        if container.release:
+            release_container = deepcopy(container)
+            release_container.set_release_tag()
+
+        # Keep track of unreleased containers
+        if (
+            release_container is not None
+            and ghcr_token
+            and not release_container.exists(ghcr_token)
+        ):
+            unreleased_summary.append((f"`{name}`", f"`{release_container.uri}`"))
 
         if base_container is not None and base_container.date > container.date:
             raise ContainersException(name, "date moved back")
 
         build = base_container is None or tag != base_container.tag
         if build and pr is not None:
-            container.set_pr(pr)
+            container.set_pr_tag(pr)
         else:
-            container.set_main()
+            container.set_main_tag()
 
-        if (
-            not build
-            and github_token
-            and main
-            and not github_container_exists(container, ghcr_token)
-        ):
+        if not build and ghcr_token and main and not container.exists(ghcr_token):
             print(f"::warning::Container {container.uri} does not exist; building")
             build = True
 
         if build:
-            if base_container.date > container.date:
+            if base_container is not None and base_container.date > container.date:
                 raise ContainersException(name, "date moved back")
             changed[name] = True
             summary_name = f"[`{name}`]({container.url})"
             build_summary.append(
                 (
                     summary_name,
-                    f"`{base_container.tag}`" if base_container.tag else "",
+                    f"`{base_container.tag}`" if base_container else "",
                     f"`{container.uri}`",
                 )
             )
@@ -464,7 +491,7 @@ def run_with_base(
             package_summary.append((f"`{name}`", base_value_output, value_output))
 
     # Build summary table
-    build_output = "## Builds\n\n"
+    build_output = "## Container builds\n\n"
     if build_summary:
         build_output += tabulate(
             build_summary, headers=["container", "base tag", "uri"], tablefmt="github"
@@ -475,7 +502,7 @@ def run_with_base(
         build_output += "\n\n"
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
             f.write(build_output)
-    print_section("Build summary", build_output)
+    print_section("Container build summary", build_output)
 
     # Packages summary table
     packages_output = "## Packages changed\n\n"
@@ -493,6 +520,20 @@ def run_with_base(
             f.write(packages_output)
     print_section("Packages changed summary", packages_output)
 
+    # Unreleased table
+    unreleased_output = "## Unreleased containers\n\n"
+    if unreleased_summary:
+        unreleased_output += tabulate(
+            unreleased_summary, headers=["container", "url"], tablefmt="github"
+        )
+    else:
+        unreleased_output += "No unreleased containers"
+    if GITHUB_ACTION:
+        unreleased_output += "\n\n"
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+            f.write(unreleased_output)
+    print_section("Unreleased containers summary", unreleased_output)
+
     # Do github output
     result = {f"uri-{k}": v for k, v in uris.items()}
     result.update({f"changed-{k}": "1" if v else "" for k, v in changed.items()})
@@ -506,7 +547,7 @@ def run_with_base(
                 f.write(f"{value}\n")
     print_section("Output", output)
 
-    return build_output + packages_output
+    return build_output + packages_output + unreleased_output
 
 
 def action_pr(args: argparse.Namespace):
