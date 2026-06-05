@@ -1,0 +1,49 @@
+name: "release"
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: prepare
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      from-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.from-moose-mpi-rocky8-clang }}
+      from-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-cuda-gcc }}
+      from-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-gcc }}
+      from-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.from-moose-mpi-rocky8-gccmin }}
+      from-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.from-moose-mpi-rocky8-oneapi }}
+      from-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky9-gcc }}
+      to-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.to-moose-mpi-rocky8-clang }}
+      to-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-cuda-gcc }}
+      to-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-gcc }}
+      to-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.to-moose-mpi-rocky8-gccmin }}
+      to-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.to-moose-mpi-rocky8-oneapi }}
+      to-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky9-gcc }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check branch
+        shell: bash
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "Error: This workflow can only be run on 'main'"
+            exit 1
+          fi
+      - name: Install python dependencies
+        shell: bash
+        run: pip install --no-cache -r requirements.txt
+      - name: Parse
+        id: parse
+        shell: bash
+        run: |
+          python ./.github/scripts/prepare.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
