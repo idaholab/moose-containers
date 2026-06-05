@@ -19,4 +19,5 @@ gcc-ubuntu24: "14.2.0"
 gcc-rocky8-clang: "15.2.1"
 
 # alternate versions
+mpich-rocky8-oneapi: "4.3.2"
 mpich-rocky9: "4.3.2"
