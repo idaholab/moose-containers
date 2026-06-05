@@ -259,8 +259,10 @@ def parse_args():
     action_parser = parser.add_subparsers(dest="action", help="Action to perform")
     action_parser.required = True
 
-    def add_common(parser: argparse.ArgumentParser):
-        parser.add_argument("--github-token", type=str, help="The github token")
+    def add_common(parser: argparse.ArgumentParser, require_token: bool = False):
+        parser.add_argument(
+            "--github-token", type=str, help="The github token", required=require_token
+        )
 
     def add_base_ref(parser: argparse.ArgumentParser):
         parser.add_argument(
@@ -285,6 +287,7 @@ def parse_args():
     add_common(push_parser)
 
     release_parser = action_parser.add_parser("release", parents=[parent])
+    add_common(release_parser, require_token=True)
 
     return parser.parse_args()
 
@@ -569,8 +572,83 @@ def action_push(args: argparse.Namespace):
 
 
 def action_release(args: argparse.Namespace):
-    containers, packages = load_current()
-    raise Exception("not working yet")
+    github_token = args.github_token
+
+    containers, _ = load_current()
+
+    # Get a ghcr token for determining packing existance
+    ghcr_token = github_ghcr_token(github_token)
+
+    # Whether or not we're missing containers for a release
+    missing_containers = False
+
+    release_from = {}
+    release_to = {}
+    release_summary = []
+    for name in sorted(containers):
+        container = containers[name]
+
+        # Shouldn't be released
+        if not container.release:
+            continue
+
+        # Setup container URIs
+        main_container = deepcopy(container)
+        main_container.set_main_tag()
+        container.set_release_tag()
+
+        release_from[name] = main_container.uri
+
+        # Skip containers already released
+        if container.exists(ghcr_token):
+            release_to[name] = ""
+            continue
+
+        # Check for existance of main container
+        if not main_container.exists(ghcr_token):
+            print(f"::error Main container {main_container.uri} does not exist")
+            missing_containers = True
+
+        release_from[name] = main_container.uri
+        release_to[name] = container.uri
+        release_summary.append(
+            (
+                f"[`{name}`]({container.url})",
+                f"`{main_container.uri}`",
+                f"`{container.uri}`",
+            )
+        )
+
+    if missing_containers:
+        pass
+
+    # Build summary table
+    build_output = "## Container releases\n\n"
+    if release_summary:
+        build_output += tabulate(
+            release_summary,
+            headers=["container", "main uri", "release uri"],
+            tablefmt="github",
+        )
+    else:
+        build_output += "No containers to release"
+    if GITHUB_ACTION:
+        build_output += "\n\n"
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+            f.write(build_output)
+    print_section("Container release summary", build_output)
+
+    # Do github output
+    result = {f"from-{k}": v for k, v in release_from.items()}
+    result.update({f"to-{k}": v for k, v in release_to.items()})
+    output = []
+    for k, v in result.items():
+        value = f"{k}={v}"
+        output.append(value)
+        if GITHUB_ACTION:
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                f.write(f"{value}\n")
+    print_section("Output", output)
 
 
 def main():
