@@ -48,7 +48,8 @@ RUN . "$MOOSE_ENV" && \
         CXX=icpx \
         FC=ifx \
         F77=ifx \
-        F90=ifx && \
+        F90=ifx \
+        --with-device=ch3:nemesis && \
     rm /root/install_mpich.bash
 
 # Expose oneapi and MPI directory as env vars
