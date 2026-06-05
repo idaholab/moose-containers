@@ -1,0 +1,41 @@
+name: Release docker
+description: Releases a docker container
+
+inputs:
+  registry-token:
+    description: The token for pushing to the registry
+    required: true
+  from-uri:
+    description: The URI to pull from
+    required: true
+  to-uri:
+    description: The URI to push to
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ inputs.registry-token }}
+    - name: Pull image
+      shell: bash
+      run: |
+        echo "::group::Pull image"
+        docker pull "${{ inputs.from-uri }}"
+        echo "::endgroup::"
+    - name: Tag image
+      shell: bash
+      run: |
+        echo "::group::Tag image
+        docker tag "${{ inputs.from-uri }}" "${{ inputs.to-uri }}"
+        echo "::endgroup::"
+    - name: Push image
+      shell: bash
+      run: |
+        echo "::group::Push image
+        docker push "${{ inputs.to-uri }}"
+        echo "::endgroup::"
