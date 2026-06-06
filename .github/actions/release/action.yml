@@ -30,12 +30,12 @@ runs:
     - name: Tag image
       shell: bash
       run: |
-        echo "::group::Tag image
+        echo "::group::Tag image"
         docker tag "${{ inputs.from-uri }}" "${{ inputs.to-uri }}"
         echo "::endgroup::"
     - name: Push image
       shell: bash
       run: |
-        echo "::group::Push image
+        echo "::group::Push image"
         docker push "${{ inputs.to-uri }}"
         echo "::endgroup::"
