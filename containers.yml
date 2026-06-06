@@ -85,6 +85,7 @@ moose-mpi-rocky8-oneapi:
     - "oneapi{{ package("oneapi") }}"
     - "mpich{{ package("mpich-rocky8-oneapi") }}"
   date: "20260605"
+  release: true
 moose-mpi-rocky9-gcc:
   from: moose-compiler-rocky9-gcc
   tags:
