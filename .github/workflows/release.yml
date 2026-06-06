@@ -48,7 +48,7 @@ jobs:
   merge-release:
     name: merge-release
     needs: prepare
-    if: ${{ inputs.dry_run != 'false' }}
+    if: ${{ inputs.dry_run == 'false' }}
     runs-on: ubuntu-slim
     environment: ${{ inputs.dry_run == 'false' && 'release' || '' }}
     permissions:
