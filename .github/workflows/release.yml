@@ -48,9 +48,9 @@ jobs:
   merge-release:
     name: merge-release
     needs: prepare
-    if: ${{ needs.prepare.result == 'success' && inputs.dry_run == 'false' }}
+    if: ${{ needs.prepare.result == 'success' && !inputs.dry_run }}
     runs-on: ubuntu-slim
-    environment: ${{ inputs.dry_run == 'false' && 'release' || '' }}
+    environment: ${{ !inputs.dry_run && 'release' || '' }}
     permissions:
       contents: write
     steps:
