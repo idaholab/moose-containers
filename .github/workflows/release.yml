@@ -2,6 +2,12 @@ name: "release"
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without making changes"
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: release
@@ -30,6 +36,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Install python dependencies
+        shell: bash
+        run: pip install --no-cache -r requirements.txt
+      - name: Parse
+        id: parse
+        shell: bash
+        run: |
+          python ./.github/scripts/prepare.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
+
+  merge-release:
+    name: merge-release
+    needs: prepare
+    if: ${{ inputs.dry_run != 'false' }}
+    runs-on: ubuntu-slim
+    environment: ${{ inputs.dry_run == 'false' && 'release' || '' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Check branch
@@ -39,11 +65,132 @@ jobs:
             echo "Error: This workflow can only be run on 'main'"
             exit 1
           fi
-      - name: Install python dependencies
-        shell: bash
-        run: pip install --no-cache -r requirements.txt
-      - name: Parse
-        id: parse
-        shell: bash
+      - name: Merge main into release
         run: |
-          python ./.github/scripts/prepare.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout release
+          git merge --no-ff origin/main -m "Merge main into release"
+          git push origin release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  moose-mpi-rocky8-clang:
+    name: "moose-mpi-rocky8-clang"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8-clang
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-clang }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-clang }}
+
+  moose-mpi-rocky8-cuda-gcc:
+    name: "moose-mpi-rocky8-cuda-gcc"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8-cuda-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-cuda-gcc }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-cuda-gcc }}
+
+  moose-mpi-rocky8-gcc:
+    name: "moose-mpi-rocky8-gcc"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-gcc }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-gcc }}
+
+  moose-mpi-rocky8-gccmin:
+    name: "moose-mpi-rocky8-gccmin"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8-gccmin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-gccmin }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-gccmin }}
+
+  moose-mpi-rocky8-oneapi:
+    name: "moose-mpi-rocky8-oneapi"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8-oneapi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-oneapi }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-oneapi }}
+
+  moose-mpi-rocky9-gcc:
+    name: "moose-mpi-rocky9-gcc"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky9-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky9-gcc }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky9-gcc }}

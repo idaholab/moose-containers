@@ -1,10 +1,10 @@
 import argparse
-import base64
 import requests
 import subprocess
 import yaml
 import os
 import jinja2
+import sys
 from copy import deepcopy
 from tabulate import tabulate
 from typing import Optional, Tuple
@@ -606,7 +606,7 @@ def action_release(args: argparse.Namespace):
 
         # Check for existance of main container
         if not main_container.exists(ghcr_token):
-            print(f"::error Main container {main_container.uri} does not exist")
+            print(f"::error::Main container {main_container.uri} does not exist")
             missing_containers = True
 
         release_from[name] = main_container.uri
@@ -620,7 +620,7 @@ def action_release(args: argparse.Namespace):
         )
 
     if missing_containers:
-        pass
+        sys.exit(1)
 
     # Build summary table
     build_output = "## Container releases\n\n"
