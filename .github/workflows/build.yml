@@ -171,29 +171,29 @@ jobs:
             ROCKY_VERSION=${{ needs.prepare.outputs.package-rocky9 }}
             ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
 
-  # moose-base-ubuntu24:
-  #   name: "moose-base-ubuntu24"
-  #   needs: [prepare]
-  #   if: >-
-  #     !cancelled()
-  #     && needs.prepare.outputs.changed-moose-base-ubuntu24
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-base
-  #         file: docker/moose-base/ubuntu24/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
-  #         build-args: |
-  #           UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
-  #           ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+  moose-base-ubuntu24:
+    name: "moose-base-ubuntu24"
+    needs: [prepare]
+    if: >-
+      !cancelled()
+      && needs.prepare.outputs.changed-moose-base-ubuntu24
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-base
+          file: docker/moose-base/ubuntu24/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
+          build-args: |
+            UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
+            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
 
   # moose-base-ubuntu24-cuda:
   #   name: "moose-base-ubuntu24-cuda"

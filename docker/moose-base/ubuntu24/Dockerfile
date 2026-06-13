@@ -5,7 +5,6 @@
 #
 #   UBUNTU_VERSION: Version of ubuntu
 #   ORAS_VERSION: Version of oras
-#   URI: URI for the built image
 #
 
 ARG UBUNTU_VERSION=unset
@@ -21,8 +20,6 @@ ARG ORAS_VERSION
 RUN /bin/bash /root/install_oras.bash "$ORAS_VERSION" /usr/local/bin && rm /root/install_oras.bash
 
 # Add to environment
-ARG URI
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+RUN echo "# From moose-base-ubuntu24 ${UBUNTU_VERSION}" >> ${MOOSE_ENV} && \
     chmod +x ${MOOSE_ENV}
