@@ -4,7 +4,7 @@ rocky9: "9.7"
 ubuntu24: "24.04"
 
 # version defaults
-cuda: "13.2.1"
+cuda: "13.3.0"
 mpich: "5.0.1"
 openmpi: "5.0.10"
 oneapi: "2026.1.0"
