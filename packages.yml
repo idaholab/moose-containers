@@ -8,7 +8,7 @@ cuda: "13.2.1"
 mpich: "5.0.1"
 openmpi: "5.0.10"
 oneapi: "2026.1.0"
-oras: "1.3.2"
+oras: "1.3.3"
 
 # compiler versions
 clang-rocky8: "21.1.8"
