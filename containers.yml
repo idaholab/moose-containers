@@ -2,7 +2,7 @@
 moose-base-rocky8:
   tags:
     - "{{ package("rocky8") }}"
-  date: "20260605"
+  date: "20260714"
 moose-base-rocky8-cuda:
   tags:
     - "{{ package("rocky8") }}"
