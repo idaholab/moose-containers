@@ -3,9 +3,9 @@
 #
 # Required build arguments:
 #
+#   CONTAINER_NAME: Name for the container
 #   ORAS_VERSION: Version of oras
 #   ROCKY_VERSION: Version of rocky8
-#   URI: URI for the built image
 #
 
 FROM rockylinux/rockylinux:8.10.20240528
@@ -30,8 +30,8 @@ RUN dnf -y install epel-release && \
     dnf clean all
 
 # Add to environment
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+RUN test -n "$CONTAINER_NAME" && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     chmod +x ${MOOSE_ENV}

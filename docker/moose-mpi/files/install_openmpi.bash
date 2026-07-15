@@ -46,8 +46,8 @@ rm -rf "$BUILD_DIR"
 
 ENV_SCRIPT="${OPENMPI_DIR}/env.sh"
 cat <<EOF >> "$ENV_SCRIPT"
-export LD_LIBRARY_PATH=${OPENMPI_DIR}/lib:\${LD_LIBRARY_PATH}
-export MANPATH=${OPENMPI_DIR}/share/man:\${MANPATH}
+export LD_LIBRARY_PATH=${MPICH_DIR}/lib:\${LD_LIBRARY_PATH:-}
+export MANPATH=${MPICH_DIR}/share/man:\${MANPATH:-}
 export PATH=${OPENMPI_DIR}/bin:\${PATH}
 export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77
 EOF

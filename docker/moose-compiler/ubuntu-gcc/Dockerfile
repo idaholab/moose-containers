@@ -7,8 +7,8 @@
 # Required build arguments:
 #
 #   BUILD_FROM: FROM image
+#   CONTAINER_NAME: Name for the container
 #   GCC_VERSION: Full version of GCC to install
-#   URI: URI for the built image
 #
 
 ARG BUILD_FROM=unset
@@ -35,9 +35,9 @@ RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && 
 
 # Setup separate compiler environment
 ARG GCC_DIR=/opt/gcc
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
+RUN test -n "$CONTAINER_NAME" && \
     GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
     GCC_BIN="${GCC_DIR}/bin" && \
     mkdir -p "$GCC_BIN" && \
@@ -45,7 +45,7 @@ RUN test -n "$URI" && \
     ln -s "/usr/bin/g++-${GCC_MAJOR_VERSION}" "${GCC_BIN}/g++" && \
     ln -s "/usr/bin/gfortran-${GCC_MAJOR_VERSION}" "${GCC_BIN}/gfortran" && \
     test -f "$MOOSE_ENV" && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     echo "export PATH=${GCC_BIN}:${PATH}" >> ${MOOSE_ENV} && \
     . ${MOOSE_ENV} && \
     gcc --version | grep ${GCC_VERSION} && \
