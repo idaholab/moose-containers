@@ -242,7 +242,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky8-gcc }}
           build-args: |
@@ -267,7 +267,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky8-cuda-gcc }}
           build-args: |
@@ -292,7 +292,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky9-gcc }}
           build-args: |
@@ -317,7 +317,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/ubuntu-clang
+          context: docker/moose-compiler
           file: docker/moose-compiler/ubuntu-clang/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-clang }}
           build-args: |
@@ -343,7 +343,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/ubuntu-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/ubuntu-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
           build-args: |
@@ -368,7 +368,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/ubuntu-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/ubuntu-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gccmin }}
           build-args: |
@@ -393,7 +393,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/ubuntu-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/ubuntu-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
           build-args: |

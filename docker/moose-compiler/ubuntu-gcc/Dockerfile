@@ -35,18 +35,27 @@ RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && 
 
 # Setup separate compiler environment
 ARG GCC_DIR=/opt/gcc
-ARG CONTAINER_NAME
-ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$CONTAINER_NAME" && \
-    GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
+RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
     GCC_BIN="${GCC_DIR}/bin" && \
     mkdir -p "$GCC_BIN" && \
     ln -s "/usr/bin/gcc-${GCC_MAJOR_VERSION}" "${GCC_BIN}/gcc" && \
     ln -s "/usr/bin/g++-${GCC_MAJOR_VERSION}" "${GCC_BIN}/g++" && \
-    ln -s "/usr/bin/gfortran-${GCC_MAJOR_VERSION}" "${GCC_BIN}/gfortran" && \
+    ln -s "/usr/bin/gfortran-${GCC_MAJOR_VERSION}" "${GCC_BIN}/gfortran"
+
+# Install valgrind
+ARG VALGRIND_DIR=/opt/valgrind
+ARG VALGRIND_VERSION=3.27.1
+RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
+    export CC=${GCC_DIR}/bin/gcc && \
+    eval "/bin/bash /root/install_valgrind.bash \"$VALGRIND_VERSION\" \"$VALGRIND_DIR\""
+
+# Add to environment script
+ARG MOOSE_ENV=/moose_env.sh
+ARG CONTAINER_NAME
+RUN test -n "$CONTAINER_NAME" && \
     test -f "$MOOSE_ENV" && \
     echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
-    echo "export PATH=${GCC_BIN}:${PATH}" >> ${MOOSE_ENV} && \
+    echo "export PATH=${GCC_DIR}/bin:${VALGRIND_DIR}/bin:${PATH}" >> ${MOOSE_ENV} && \
     . ${MOOSE_ENV} && \
     gcc --version | grep ${GCC_VERSION} && \
     g++ --version | grep ${GCC_VERSION} && \

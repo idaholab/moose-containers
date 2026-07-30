@@ -56,13 +56,20 @@ RUN "${CLANG_DIR}/bin/clang" --version && \
 RUN "${GCC_DIR}/bin/gfortran" --version && \
     "${GCC_DIR}/bin/gfortran" --version | grep -q ") ${GCC_VERSION}"
 
+# Install valgrind
+ARG VALGRIND_DIR=/opt/valgrind
+ARG VALGRIND_VERSION=3.27.1
+RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
+    export CC=${CLANG_DIR}/bin/clang && \
+    eval "/bin/bash /root/install_valgrind.bash \"$VALGRIND_VERSION\" \"$VALGRIND_DIR\""
+
 # Setup separate compiler environment
 ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
 RUN test -n "$CONTAINER_NAME" && \
     test -f "$MOOSE_ENV" && \
     echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
-    echo "export PATH=${CLANG_DIR}/bin:${GCC_DIR}/bin:${PATH}" >> ${MOOSE_ENV} && \
+    echo "export PATH=${CLANG_DIR}/bin:${GCC_DIR}/bin:${VALGRIND_DIR}/bin:${PATH}" >> ${MOOSE_ENV} && \
     echo "export CC=${CLANG_DIR}/bin/clang" >> ${MOOSE_ENV} && \
     echo "export CXX=${CLANG_DIR}/bin/clang++" >> ${MOOSE_ENV} && \
     echo "export FC=${GCC_DIR}/bin/gfortran" >> ${MOOSE_ENV} && \
