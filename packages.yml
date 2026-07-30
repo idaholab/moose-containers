@@ -7,7 +7,7 @@ ubuntu24: "24.04"
 cuda: "13.3.0"
 mpich: "5.0.1"
 openmpi: "5.0.10"
-oneapi: "2026.1.0"
+oneapi: "2026.1.1"
 oras: "1.3.3"
 
 # compiler versions
