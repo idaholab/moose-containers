@@ -650,6 +650,7 @@ jobs:
   finalize:
     name: "finalize"
     needs:
+      - prepare
       - mpi-rocky8-cuda-gcc
       - mpi-rocky8-gcc
       - mpi-rocky8-oneapi
