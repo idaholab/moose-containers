@@ -40,14 +40,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python dependencies
+      - name: Install python
         shell: bash
-        run: pip install --no-cache -r requirements.txt
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
       - name: Parse
         id: parse
         shell: bash
         run: |
-          python ./.github/scripts/prepare.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
 
   merge-release:
     name: merge-release

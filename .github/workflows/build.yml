@@ -80,14 +80,18 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python dependencies
+      - name: Install python
         shell: bash
-        run: pip install --no-cache -r requirements.txt
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
       - name: Parse
         id: parse
         shell: bash
         run: |
-          prepare_cmd=("python" "./.github/scripts/prepare.py")
+          source .venv/bin/activate
+
+          prepare_cmd=("python" "./.github/scripts/ci.py")
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
             "${prepare_cmd[@]}" \

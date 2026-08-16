@@ -1,24 +1,31 @@
 import argparse
-import requests
-import subprocess
-import yaml
-import os
-import jinja2
-import sys
-from copy import deepcopy
-from tabulate import tabulate
-from typing import Optional, Tuple
 import datetime
+import os
+import subprocess
+import sys
+import urllib.parse
+from copy import deepcopy
+
+import jinja2
+import requests
+import yaml
+from tabulate import tabulate
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 """Root path to the repo."""
 
-REPO = "idaholab/moose-containers"
+ORG = "idaholab"
+"""The GitHub organization."""
+
+REPO = "moose-containers"
 """The GitHub repository."""
 
-URI_PREFIX = f"ghcr.io/{REPO}"
+FULL_REPO = f"{ORG}/{REPO}"
+"""The full GitHub repository (org/repo)."""
+
+URI_PREFIX = f"ghcr.io/{FULL_REPO}"
 """URI prefix for container pushes."""
 
 CONTAINERS_FILE = "containers.yml"
@@ -29,6 +36,9 @@ PACKAGES_FILE = "packages.yml"
 
 GITHUB_ACTION = os.environ.get("GITHUB_ACTIONS") == "true"
 """Whether or not we're executed in a github action."""
+
+GITHUB_API_URL = "https://api.github.com/"
+"""The GitHub API url."""
 
 
 class ContainersException(Exception):
@@ -74,10 +84,10 @@ class Container:
         self._release: bool = release
         """Whether or not this container should be released."""
 
-        self._from_container: Optional["Container"] = None
+        self._from_container: Container | None = None
         """The container this container is built from, if any."""
 
-        self._pr_tag: Optional[int] = None
+        self._pr_tag: int | None = None
         """Whether or not this container has a PR name/tag. Used in the URI."""
 
         self._main_tag: bool = False
@@ -107,7 +117,7 @@ class Container:
         return self._release
 
     @property
-    def from_container(self) -> Optional["Container"]:
+    def from_container(self) -> Container | None:
         assert self._from_container is None or isinstance(
             self._from_container, Container
         )
@@ -142,7 +152,7 @@ class Container:
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
-            prefix += f"pr-"
+            prefix += "pr-"
         elif self._main_tag:
             assert not self._release_tag
             prefix += "main-"
@@ -156,14 +166,12 @@ class Container:
     @property
     def url(self) -> str:
         """Get the URL on GitHub for this repo."""
-        return (
-            f"https://github.com/{REPO}/pkgs/container/moose-containers%2F{self.repo}"
-        )
+        return f"https://github.com/{FULL_REPO}/pkgs/container/moose-containers%2F{self.repo}"
 
     def exists(self, ghcr_token: str) -> bool:
         return github_container_exists(self, ghcr_token)
 
-    def set_from_container(self, from_container: "Container"):
+    def set_from_container(self, from_container: Container):
         """Set the from container. Can only be called once."""
         assert isinstance(from_container, Container)
         assert self._from_container is None
@@ -231,7 +239,7 @@ def load_containers(
     return containers
 
 
-def load_current() -> Tuple[dict[str, Container], dict]:
+def load_current() -> tuple[dict[str, Container], dict]:
     """Render the current containers.yml template with the current packages.yml."""
 
     # Load packages config
@@ -242,7 +250,7 @@ def load_current() -> Tuple[dict[str, Container], dict]:
     return load_containers(containers_template, packages), packages
 
 
-def load_previous(ref: str) -> Tuple[dict[str, Container], dict]:
+def load_previous(ref: str) -> tuple[dict[str, Container], dict]:
     """Render a previous containers.yaml template at the given git reference."""
     containers_template = git_show(CONTAINERS_FILE, ref)
     packages = yaml.safe_load(git_show(PACKAGES_FILE, ref))
@@ -259,10 +267,18 @@ def parse_args():
     action_parser = parser.add_subparsers(dest="action", help="Action to perform")
     action_parser.required = True
 
-    def add_common(parser: argparse.ArgumentParser, require_token: bool = False):
+    def add_common(
+        parser: argparse.ArgumentParser,
+        require_token: bool = False,
+        dry_run: bool = False,
+    ):
         parser.add_argument(
             "--github-token", type=str, help="The github token", required=require_token
         )
+        if dry_run:
+            parser.add_argument(
+                "--dry-run", action="store_true", help="Preform a dry run."
+            )
 
     def add_base_ref(parser: argparse.ArgumentParser):
         parser.add_argument(
@@ -289,6 +305,21 @@ def parse_args():
     release_parser = action_parser.add_parser("release", parents=[parent])
     add_common(release_parser, require_token=True)
 
+    delete_untagged_parser = action_parser.add_parser(
+        "delete_untagged",
+        parents=[parent],
+        help="Delete untagged images.",
+    )
+    add_common(delete_untagged_parser, require_token=True, dry_run=True)
+
+    delete_pr_parser = action_parser.add_parser(
+        "delete_pr",
+        parents=[parent],
+        help="Delete pull request images.",
+    )
+    add_common(delete_pr_parser, require_token=True, dry_run=True)
+    delete_pr_parser.add_argument("pr", type=int, help="The pull request number.")
+
     return parser.parse_args()
 
 
@@ -311,7 +342,7 @@ def print_section(title: str, contents: str | list[str]):
         print()
 
 
-def get_github_headers(github_token: str) -> dict:
+def get_github_api_headers(github_token: str) -> dict:
     """Get the headers for authenticating to the GitHub API."""
     return {
         "Authorization": f"Bearer {github_token}",
@@ -320,12 +351,20 @@ def get_github_headers(github_token: str) -> dict:
     }
 
 
-def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[int]:
+def github_api_delete(url: str, token: str):
+    """Call DELETE on the GitHub API."""
+    response = requests.delete(
+        f"{GITHUB_API_URL}{url}", headers=get_github_api_headers(token)
+    )
+    response.raise_for_status()
+
+
+def github_get_pr_comment(pr: int, marker: str, github_token: str) -> int | None:
     """Find a previous comment from this job by looking for our marker."""
-    url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
+    url = f"{GITHUB_API_URL}repos/{FULL_REPO}/issues/{pr}/comments"
 
     while url:
-        response = requests.get(url, headers=get_github_headers(github_token))
+        response = requests.get(url, headers=get_github_api_headers(github_token))
         response.raise_for_status()
         comments = response.json()
 
@@ -343,9 +382,7 @@ def github_get_pr_comment(pr: int, marker: str, github_token: str) -> Optional[i
 
 def github_delete_pr_comment(comment_id: int, github_token: str):
     """Delete a GitHub comment by ID."""
-    url = f"https://api.github.com/repos/{REPO}/issues/comments/{comment_id}"
-    response = requests.delete(url, headers=get_github_headers(github_token))
-    response.raise_for_status()
+    github_api_delete(f"repos/{FULL_REPO}/issues/comments/{comment_id}", github_token)
     print(f"Deleted previous comment {comment_id}")
 
 
@@ -356,31 +393,22 @@ def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
     if existing_id is not None:
         github_delete_pr_comment(existing_id, github_token)
 
-    url = f"https://api.github.com/repos/{REPO}/issues/{pr}/comments"
+    url = f"{GITHUB_API_URL}repos/{FULL_REPO}/issues/{pr}/comments"
     payload = {"body": f"{marker}\n{body}"}
     response = requests.post(
-        url, json=payload, headers=get_github_headers(github_token)
+        url, json=payload, headers=get_github_api_headers(github_token)
     )
     response.raise_for_status()
     print(f"Posted comment: {response.json()['id']}")
 
 
-def github_get_ghcr_token(github_token: str, name: str):
-    response = requests.get(
-        "https://ghcr.io/token",
-        params={"service": "ghcr.io", "scope": f"repository:{REPO}/{name}:pull"},
-        auth=("token", github_token),
-    )
-    response.raise_for_status()
-    return response.json().get("token")
-
-
 def github_ghcr_token(github_token: str) -> str:
+    """Get a GitHub GHCR token."""
     response = requests.get(
         "https://ghcr.io/token",
         params={
             "service": "ghcr.io",
-            "scope": f"repository:{REPO}/moose-containers:pull",
+            "scope": f"repository:{FULL_REPO}/moose-containers:pull",
         },
         auth=("token", github_token),
     )
@@ -390,7 +418,7 @@ def github_ghcr_token(github_token: str) -> str:
 
 def github_container_exists(container: Container, ghcr_token: str) -> bool:
     """Check if the given container exists on GitHub."""
-    url = f"https://ghcr.io/v2/{REPO}/{container.repo}/manifests/{container.tag}"
+    url = f"https://ghcr.io/v2/{FULL_REPO}/{container.repo}/manifests/{container.tag}"
     headers = {
         "Authorization": f"Bearer {ghcr_token}",
         "Accept": "application/vnd.oci.image.index.v1+json",
@@ -409,11 +437,35 @@ def github_container_exists(container: Container, ghcr_token: str) -> bool:
     return False
 
 
+def github_api_get_paginated(url: str, token: str) -> list[dict]:
+    """Call GET on the GitHub API with pagination."""
+    url = f"{GITHUB_API_URL}{url}"
+    result: list[dict] = []
+    headers = get_github_api_headers(token)
+    params: dict | None = {"per_page": 100}
+    while url:
+        response = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=30,
+        )
+        response.raise_for_status()
+
+        result.extend(response.json())
+        result = response.json()
+
+        url = response.links.get("next", {}).get("url")
+        params = None
+
+    return result
+
+
 def run_with_base(
     base_ref: str,
-    pr: Optional[int] = None,
+    pr: int | None = None,
     main: bool = False,
-    github_token: Optional[str] = None,
+    github_token: str | None = None,
 ) -> str:
     assert pr is not None or main
     assert (pr is not None) != main
@@ -571,6 +623,69 @@ def action_push(args: argparse.Namespace):
     run_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
+def action_delete_untagged(args: argparse.Namespace):
+    token = args.github_token
+    current_containers, _ = load_current()
+
+    for container in current_containers.values():
+        for prefix in ["pr-", "main-"]:
+            name = f"moose-containers/{prefix}{container.name}"
+            print(f"Checking {name}...")
+
+            url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
+            try:
+                result = github_api_get_paginated(url, token)
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    print(f"  WARNING: {name} does not exist")
+                    continue
+                else:
+                    raise
+
+            for entry in result:
+                if not entry["metadata"]["container"]["tags"]:
+                    id = entry["id"]
+                    if args.dry_run:
+                        print(f"  Would delete id={id}")
+                    else:
+                        print(f"  Deleting id={id}...")
+                        github_api_delete(f"{url}/{id}", token)
+
+
+def action_delete_pr(args: argparse.Namespace):
+    token = args.github_token
+    pr = args.pr
+    current_containers, _ = load_current()
+
+    for container in current_containers.values():
+        name = f"moose-containers/pr-{container.name}"
+        print(f"Checking {name}...")
+
+        url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
+        try:
+            result = github_api_get_paginated(url, token)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                print(f"  WARNING: {name} does not exist")
+                continue
+            else:
+                raise
+
+        for entry in result:
+            tags = entry["metadata"]["container"]["tags"]
+            if not tags:
+                continue
+            assert len(tags) == 1, "Should just have one tag"
+            tag = tags[0]
+            if tag.startswith(f"pr{pr}-"):
+                id = entry["id"]
+                context = f"{tag} id={id}"
+                if args.dry_run:
+                    print(f"  Would delete {context}")
+                else:
+                    print(f"  Deleting {context}...")
+                    github_api_delete(f"{url}/{id}", token)
+
 def action_release(args: argparse.Namespace):
     github_token = args.github_token
 
@@ -654,12 +769,7 @@ def action_release(args: argparse.Namespace):
 def main():
     args = parse_args()
 
-    if args.action == "pr":
-        action_pr(args)
-    elif args.action == "push":
-        action_push(args)
-    elif args.action == "release":
-        action_release(args)
+    globals()[f"action_{args.action}"](args)
 
 
 if __name__ == "__main__":
