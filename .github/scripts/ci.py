@@ -7,7 +7,8 @@ import sys
 import urllib.parse
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Tuple
 
 import jinja2
 import requests
@@ -304,6 +305,10 @@ def parse_args():
             "base_ref", type=str, help="The base git reference to compare against."
         )
 
+    def add_pr(parser: argparse.ArgumentParser):
+        pr_parser.add_argument("pr", type=int, help="The pull request number.")
+
+    # pr action
     pr_parser = action_parser.add_parser(
         "pr",
         parents=[parent],
@@ -311,8 +316,20 @@ def parse_args():
     )
     pr_parser.add_argument("pr", type=int, help="The pull request number.")
     add_base_ref(pr_parser)
+    add_pr(pr_parser)
     add_common(pr_parser)
 
+    # post_pr action
+    post_pr_parser = action_parser.add_parser(
+        "post_pr",
+        parents=[parent],
+        help="Perform the post-pull request action (check if containers exist)."
+    )
+    add_base_ref(post_pr_parser)
+    add_pr(post_pr_parser)
+    add_common(post_pr_parser)
+
+    # push action
     push_parser = action_parser.add_parser(
         "push",
         parents=[parent],
@@ -321,9 +338,11 @@ def parse_args():
     add_base_ref(push_parser)
     add_common(push_parser)
 
+    # release action
     release_parser = action_parser.add_parser("release", parents=[parent])
     add_common(release_parser, require_token=True)
 
+    # delete_untagged action
     delete_untagged_parser = action_parser.add_parser(
         "delete_untagged",
         parents=[parent],
@@ -331,12 +350,14 @@ def parse_args():
     )
     add_common(delete_untagged_parser, require_token=True, dry_run=True)
 
+    # delete_pr action
     delete_pr_parser = action_parser.add_parser(
         "delete_pr",
         parents=[parent],
         help="Delete pull request images.",
     )
     add_common(delete_pr_parser, require_token=True, dry_run=True)
+    add_pr(delete_pr_parser)
     delete_pr_parser.add_argument("pr", type=int, help="The pull request number.")
     delete_pr_parser.add_argument(
         "--allow-missing-repos",
@@ -344,6 +365,7 @@ def parse_args():
         help="Allow repositories to not exist.",
     )
 
+    # delete_all_prs action
     delete_all_prs_parser = action_parser.add_parser(
         "delete_all_prs",
         parents=[parent],
