@@ -21,6 +21,7 @@ jobs:
       contents: read
       packages: read
     outputs:
+      from-moose-mpi-rocky8: ${{ steps.parse.outputs.from-moose-mpi-rocky8 }}
       from-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-cuda-gcc }}
       from-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-gcc }}
       from-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.from-moose-mpi-rocky8-oneapi }}
@@ -29,6 +30,7 @@ jobs:
       from-moose-mpi-ubuntu24-clang: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-clang }}
       from-moose-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-gcc }}
       from-moose-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-gccmin }}
+      to-moose-mpi-rocky8: ${{ steps.parse.outputs.to-moose-mpi-rocky8 }}
       to-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-cuda-gcc }}
       to-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-gcc }}
       to-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.to-moose-mpi-rocky8-oneapi }}
@@ -81,6 +83,26 @@ jobs:
           git push origin release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  moose-mpi-rocky8:
+    name: "moose-mpi-rocky8"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-rocky8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8 }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8 }}
 
   moose-mpi-rocky8-cuda-gcc:
     name: "moose-mpi-rocky8-cuda-gcc"

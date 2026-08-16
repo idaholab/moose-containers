@@ -3,6 +3,7 @@ moose-base-rocky8:
   tags:
     - "{{ package("rocky8") }}"
   date: "20260816"
+  release: true
 moose-base-rocky8-cuda:
   tags:
     - "{{ package("rocky8") }}"
