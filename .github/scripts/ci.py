@@ -359,7 +359,6 @@ def parse_args():
     )
     add_common(delete_pr_parser, require_token=True, dry_run=True)
     add_pr(delete_pr_parser)
-    delete_pr_parser.add_argument("pr", type=int, help="The pull request number.")
     delete_pr_parser.add_argument(
         "--allow-missing-repos",
         action="store_true",
