@@ -553,7 +553,7 @@ def github_delete_container(github_container: GitHubContainer, token: str):
     github_api_delete(f"{url}/{github_container.id}", token)
 
 
-def run_with_base(
+def prepare_with_base(
     base_ref: str,
     pr: int | None = None,
     main: bool = False,
@@ -701,7 +701,7 @@ def action_prepare_pr(args: argparse.Namespace):
     pr = args.pr
     github_token = args.github_token
 
-    result = run_with_base(args.base_ref, pr, github_token=github_token)
+    result = prepare_with_base(args.base_ref, pr, github_token=github_token)
 
     # Pull request comment
     if GITHUB_ACTION and github_token:
@@ -712,7 +712,7 @@ def action_prepare_pr(args: argparse.Namespace):
 
 
 def action_prepare_push(args: argparse.Namespace):
-    run_with_base(args.base_ref, main=True, github_token=args.github_token)
+    prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
 def delete_containers(
