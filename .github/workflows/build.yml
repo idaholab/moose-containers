@@ -15,11 +15,8 @@ jobs:
   delete-cache:
     name: delete-cache
     if: >
-      github.event_name == 'push' ||
-      (
-        github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
-      )
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
     runs-on: ubuntu-slim
     permissions:
       contents: read
