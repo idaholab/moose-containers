@@ -848,15 +848,10 @@ def post_action(github_token: str, pr: int | None = None, release: bool = False)
 
         print(f"Checking {container.name}:{container.tag}...")
 
-        if release:
-            if not container.release:
-                continue
-            if check_exists(name, release_containers):
-                continue
-
+        if release and check_exists(name, release_containers):
+            continue
         if pr is not None and check_exists(name, pr_containers):
             continue
-
         if check_exists(name, main_containers):
             continue
 
