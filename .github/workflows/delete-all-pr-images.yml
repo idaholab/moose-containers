@@ -1,4 +1,4 @@
-name: Delete All PR images
+name: Delete all PR images
 
 on:
   workflow_dispatch:

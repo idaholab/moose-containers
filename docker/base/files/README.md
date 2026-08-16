@@ -1,6 +1,6 @@
 # moose-base files
 
-Files used by `docker/moose-base` containers.
+Files used by `docker/base` containers.
 
 ## `install_oras.bash`
 
@@ -14,11 +14,11 @@ Installs oras.
 
 ### Used in
 
-- `docker/moose-base/rocky8`
-- `docker/moose-base/rocky8-cuda`
-- `docker/moose-base/rocky9`
-- `docker/moose-base/ubuntu24`
-- `docker/moose-base/ubuntu24-cuda`
+- `docker/base/rocky8`
+- `docker/base/rocky8-cuda`
+- `docker/base/rocky9`
+- `docker/base/ubuntu24`
+- `docker/base/ubuntu24-cuda`
 
 ## `rocky_base.bash`
 
@@ -34,9 +34,9 @@ Will make sure that the passed in rocky version is the same as the OS version.
 
 ### Used in
 
-- `docker/moose-base/rocky8`
-- `docker/moose-base/rocky8-cuda`
-- `docker/moose-base/rocky9`
+- `docker/base/rocky8`
+- `docker/base/rocky8-cuda`
+- `docker/base/rocky9`
 
 ## `rocky8_python.bash`
 
@@ -50,8 +50,8 @@ Installs a newer python for use in rocky8 containers, along with basic python de
 
 ### Used in
 
-- `docker/moose-base/rocky8`
-- `docker/moose-base/rocky8-cuda`
+- `docker/base/rocky8`
+- `docker/base/rocky8-cuda`
 
 ## `ubuntu_base.bash`
 
@@ -65,5 +65,5 @@ Performs updates for a base ubuntu image and installs the base requirements and 
 
 ### Used in
 
-- `docker/moose-base/ubuntu24`
-- `docker/moose-base/ubuntu24-cuda`
+- `docker/base/ubuntu24`
+- `docker/base/ubuntu24-cuda`
