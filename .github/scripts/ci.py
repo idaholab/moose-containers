@@ -144,6 +144,9 @@ class Container:
             assert not self._main_tag
             assert not self._release_tag
             tag = f"pr{self._pr_tag}-{tag}"
+        elif self._main_tag:
+            assert not self._release_tag
+            tag = f"main-{tag}"
         return tag
 
     @property
@@ -153,10 +156,10 @@ class Container:
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
-            prefix += "pr-"
+            prefix += "staging-"
         elif self._main_tag:
             assert not self._release_tag
-            prefix += "main-"
+            prefix += "staging-"
         return f"{prefix}{self.name}"
 
     @property
@@ -673,25 +676,18 @@ def action_delete_untagged(args: argparse.Namespace):
     current_containers, _ = load_current()
 
     for container in current_containers.values():
-        for prefix in ["pr-", "main-"]:
-            name = f"{prefix}{container.name}"
-            print(f"Checking {name}...")
+        name = f"staging-{container.repo}"
+        print(f"Checking {container.repo}...")
 
-            github_containers = github_get_containers(name, token)
-            for entry in github_containers:
-                if not entry.tags:
-                    context = f"id={entry.id}"
-                    if args.dry_run:
-                        print(f"  Would delete {context}")
-                    else:
-                        print(f"  Deleting {context}...")
-                    try:
-                        github_delete_container(entry, token)
-                    except requests.exceptions.HTTPError as e:
-                        if e.response.status_code == 400:
-                            print(f"  WARNING: Failed to delete {context}")
-                        else:
-                            raise
+        github_containers = github_get_containers(name, token)
+        for entry in github_containers:
+            if not entry.tags:
+                context = f"id={entry.id}"
+                if args.dry_run:
+                    print(f"  Would delete {context}")
+                else:
+                    print(f"  Deleting {context}...")
+                github_delete_container(entry, token)
 
 
 def action_delete_pr(args: argparse.Namespace):
@@ -700,33 +696,23 @@ def action_delete_pr(args: argparse.Namespace):
     current_containers, _ = load_current()
 
     for container in current_containers.values():
-        name = f"moose-containers/pr-{container.name}"
+        name = f"moose-containers/staging-{container.name}"
         print(f"Checking {name}...")
 
-        url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
-        try:
-            result = github_api_get_paginated(url, token)
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                print(f"  WARNING: {name} does not exist")
-                continue
-            else:
-                raise
-
-        for entry in result:
-            tags = entry["metadata"]["container"]["tags"]
+        github_containers = github_get_containers(name, token)
+        for entry in github_containers:
+            tags = entry.tags
             if not tags:
                 continue
             assert len(tags) == 1, "Should just have one tag"
             tag = tags[0]
             if tag.startswith(f"pr{pr}-"):
-                id_entry = entry["id"]
-                context = f"{tag} id={id_entry}"
+                context = f"{tag} id={entry.id}"
                 if args.dry_run:
                     print(f"  Would delete {context}")
                 else:
                     print(f"  Deleting {context}...")
-                    github_api_delete(f"{url}/{id_entry}", token)
+                    github_delete_container(entry, token)
 
 
 def action_delete_all_prs(args: argparse.Namespace):
@@ -749,13 +735,7 @@ def action_delete_all_prs(args: argparse.Namespace):
                 print(f"  Would delete {context}")
             else:
                 print(f"  Deleting {context}...")
-                try:
-                    github_delete_container(entry, token)
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 400:
-                        print(f"  WARNING: Failed to delete {context}")
-                    else:
-                        raise
+                github_delete_container(entry, token)
 
 
 def action_release(args: argparse.Namespace):
