@@ -832,8 +832,11 @@ def post_action(github_token: str, pr: int | None = None, release: bool = False)
 
     missing_containers = []
     for name, container in containers.items():
-        if release and release_containers[name].exists(ghcr_token):
-            continue
+        if release:
+            if not container.release:
+                continue
+            if release_containers[name].exists(ghcr_token):
+                continue
 
         if pr is not None and pr_containers[name].exists(ghcr_token):
             continue
