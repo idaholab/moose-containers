@@ -2,63 +2,63 @@
 moose-base-rocky8:
   tags:
     - "{{ package("rocky8") }}"
-  date: "20260811"
+  date: "20260816"
 moose-base-rocky8-cuda:
   tags:
     - "{{ package("rocky8") }}"
     - "cuda{{ package("cuda") }}"
-  date: "20260730"
+  date: "20260816"
 moose-base-rocky9:
   tags:
     - "{{ package("rocky9") }}"
-  date: "20260730"
+  date: "20260816"
 moose-base-ubuntu24:
   tags:
     - "{{ package("ubuntu24") }}"
-  date: "20260730"
+  date: "20260816"
 moose-base-ubuntu24-cuda:
   tags:
     - "{{ package("ubuntu24") }}"
     - "cuda{{ package("cuda") }}"
-  date: "20260730"
+  date: "20260816"
 
 # moose-compiler
 moose-compiler-rocky8-cuda-gcc:
   from: moose-base-rocky8-cuda
   tags:
     - "gcc{{ package("gcc-rocky8") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-rocky8-gcc:
   from: moose-base-rocky8
   tags:
     - "gcc{{ package("gcc-rocky8") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-rocky9-gcc:
   from: moose-base-rocky9
   tags:
     - "gcc{{ package("gcc-rocky9") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-ubuntu24-clang:
   from: moose-base-ubuntu24
   tags:
     - "clang{{ package("clang-ubuntu24") }}"
     - "gcc{{ package("gcc-ubuntu24-clang") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-ubuntu24-gcc:
   from: moose-base-ubuntu24
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-ubuntu24-gccmin:
   from: moose-base-ubuntu24
   tags:
     - "gcc{{ package("gcc-min-ubuntu24") }}"
-  date: "20260730"
+  date: "20260816"
 moose-compiler-ubuntu24-cuda-gcc:
   from: moose-base-ubuntu24-cuda
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260730"
+  date: "20260816"
 
 # moose-mpi
 moose-mpi-rocky8-cuda-gcc:
@@ -67,20 +67,20 @@ moose-mpi-rocky8-cuda-gcc:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-rocky8-gcc:
   from: moose-compiler-rocky8-gcc
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-rocky8-oneapi:
   from: moose-compiler-rocky8-gcc
   tags:
     - "oneapi{{ package("oneapi") }}"
     - "mpich{{ package("mpich-rocky8-oneapi") }}"
-  date: "20260730"
+  date: "20260816"
   release: true
 moose-mpi-rocky9-gcc:
   from: moose-compiler-rocky9-gcc
@@ -88,31 +88,31 @@ moose-mpi-rocky9-gcc:
     - "mpich{{ package("mpich-rocky9") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-ubuntu24-cuda-gcc:
   from: moose-compiler-ubuntu24-cuda-gcc
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-ubuntu24-clang:
   from: moose-compiler-ubuntu24-clang
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-ubuntu24-gcc:
   from: moose-compiler-ubuntu24-gcc
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
 moose-mpi-ubuntu24-gccmin:
   from: moose-compiler-ubuntu24-gccmin
   tags:
     - "mpich{{ package("mpich") }}"
   release: true
-  date: "20260730"
+  date: "20260816"
