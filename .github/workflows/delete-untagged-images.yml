@@ -8,7 +8,7 @@ permissions:
   packages: write
 
 jobs:
-  cleanup:
+  delete-untagged-images:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout
