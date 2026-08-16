@@ -263,3 +263,48 @@ jobs:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
           from-uri: ${{ needs.prepare.outputs.from-mpi-ubuntu24-gccmin }}
           to-uri: ${{ needs.prepare.outputs.to-mpi-ubuntu24-gccmin }}
+
+  finalize:
+    name: "finalize"
+    needs:
+      - base-rocky8
+      - mpi-rocky8-cuda-gcc
+      - mpi-rocky8-gcc
+      - mpi-rocky8-oneapi
+      - mpi-rocky9-gcc
+      - mpi-ubuntu24-cuda-gcc
+      - mpi-ubuntu24-clang
+      - mpi-ubuntu24-gcc
+      - mpi-ubuntu24-gccmin
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-cuda-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-oneapi.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky9-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-clang.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-cuda-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Check
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py" \
+            post_release \
+            --github-token "${{ secrets.GITHUB_TOKEN }}"

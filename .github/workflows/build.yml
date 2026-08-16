@@ -667,6 +667,30 @@ jobs:
       && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
       && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Finalize
-        run: echo "it worked"
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Check
+        shell: bash
+        run: |
+          source .venv/bin/activate
+
+          cmd_args=()
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            cmd+=("post_pr" "${{ github.event.pull_request.number }}")
+          elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
+            cmd+=("post_push")
+          fi
+          python ./.github/scripts/ci.py" \
+            "${cmd_args[@]}" \
+            --github-token "${{ secrets.GITHUB_TOKEN }}"

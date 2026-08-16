@@ -7,8 +7,7 @@ import sys
 import urllib.parse
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Tuple
+from dataclasses import dataclass
 
 import jinja2
 import requests
@@ -340,8 +339,23 @@ def parse_args():
         help="Perform the post-pull request action (check if containers exist).",
     )
     add_pr(post_pr_parser)
-    add_base_ref(post_pr_parser)
     add_common(post_pr_parser)
+
+    # post_push action
+    post_push_parser = action_parser.add_parser(
+        "post_push",
+        parents=[parent],
+        help="Perform the post-push action (check if containers exist).",
+    )
+    add_common(post_push_parser)
+
+    # post_release action
+    post_release_parser = action_parser.add_parser(
+        "post_release",
+        parents=[parent],
+        help="Perform the post-release request action (check if containers exist).",
+    )
+    add_common(post_release_parser)
 
     # delete_untagged action
     delete_untagged_parser = action_parser.add_parser(
@@ -796,6 +810,59 @@ def action_prepare_release(args: argparse.Namespace):
             with open(os.environ["GITHUB_OUTPUT"], "a") as f:
                 f.write(f"{value}\n")
     print_section("Output", output)
+
+
+def post_action(github_token: str, pr: int | None = None, release: bool = False):
+    ghcr_token = github_ghcr_token(github_token)
+
+    containers, _ = load_current()
+
+    main_containers = deepcopy(containers)
+    [v.set_main_tag() for v in main_containers.values()]
+
+    pr_containers = {}
+    if pr is not None:
+        pr_containers = deepcopy(containers)
+        [v.set_pr_tag(pr) for v in pr_containers.values()]
+
+    release_containers = {}
+    if release:
+        release_containers = deepcopy(containers)
+        [v.set_release_tag() for v in pr_containers.values()]
+
+    missing_containers = []
+    for name, container in containers.items():
+        if release and release_containers[name].exists(ghcr_token):
+            continue
+
+        if pr is not None and pr_containers[name].exists(ghcr_token):
+            continue
+
+        if (
+            main_container := main_containers.get(name)
+        ) is not None and main_container.exists(ghcr_token):
+            continue
+
+        missing_containers.append(f"{container.name}:{container.tag}")
+
+    if missing_containers:
+        print(
+            "The following container(s) do not exist in the container registry:\n\n"
+            + "\n".join(missing_containers)
+        )
+        sys.exit(1)
+
+
+def action_post_pr(args: argparse.Namespace):
+    post_action(args.github_token, pr=args.pr)
+
+
+def action_post_push(args: argparse.Namespace):
+    post_action(args.github_token)
+
+
+def action_post_release(args: argparse.Namespace):
+    post_action(args.github_token, release=True)
 
 
 def delete_containers(
