@@ -374,6 +374,16 @@ def parse_args():
     add_common(delete_pr_parser, require_token=True, dry_run=True)
     add_pr(delete_pr_parser)
     delete_pr_parser.add_argument(
+        "--only-cache",
+        action="store_true",
+        help="Only delete the cache, not the final images.",
+    )
+    delete_pr_parser.add_argument(
+        "--only-images",
+        action="store_true",
+        help="Only delete the final images, not the cache.",
+    )
+    delete_pr_parser.add_argument(
         "--allow-missing-repos",
         action="store_true",
         help="Allow repositories to not exist.",
@@ -931,11 +941,26 @@ def action_delete_untagged(args: argparse.Namespace):
 
 def action_delete_pr(args: argparse.Namespace):
     pr = args.pr
+    only_cache = args.only_cache
+    only_images = args.only_images
+
+    if only_cache and only_images:
+        print("ERROR: Cannot supply --only-cache and --only-images")
+        sys.exit(1)
+
+    prefix = Container.get_pr_tag_prefix(pr)
+    cache_tag = f"{prefix}cache"
 
     def condition(github_container: GitHubContainer) -> bool:
-        return len(github_container.tags) == 1 and github_container.tags[0].startswith(
-            Container.get_pr_tag_prefix(pr)
-        )
+        if len(github_container.tags) == 0:
+            return False
+        tag = github_container.tags[0]
+
+        if only_cache:
+            return tag == cache_tag
+        if only_images:
+            return tag != cache_tag and tag.startswith(prefix)
+        return tag.startswith(prefix)
 
     delete_containers(
         condition, args.github_token, args.dry_run, args.allow_missing_repos
