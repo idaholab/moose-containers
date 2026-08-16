@@ -3,6 +3,7 @@ name: Build
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
@@ -11,8 +12,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  delete-cache:
+    name: delete-cache
+    if: >
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
+      )
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Delete PR images
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py \
+            delete_pr \
+            "${{ github.event.pull_request.number }}" \
+            --github-token ${{ github.token }}
+
   prepare:
     name: prepare
+    needs: [delete-cache]
+    if: always() && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
     permissions:
       contents: read
