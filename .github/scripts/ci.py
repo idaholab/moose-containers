@@ -5,6 +5,7 @@ import subprocess
 import sys
 import urllib.parse
 from copy import deepcopy
+from dataclasses import dataclass
 
 import jinja2
 import requests
@@ -320,6 +321,13 @@ def parse_args():
     add_common(delete_pr_parser, require_token=True, dry_run=True)
     delete_pr_parser.add_argument("pr", type=int, help="The pull request number.")
 
+    delete_all_prs_parser = action_parser.add_parser(
+        "delete_all_prs",
+        parents=[parent],
+        help="Delete all pull request images.",
+    )
+    add_common(delete_all_prs_parser, require_token=True, dry_run=True)
+
     return parser.parse_args()
 
 
@@ -453,12 +461,49 @@ def github_api_get_paginated(url: str, token: str) -> list[dict]:
         response.raise_for_status()
 
         result.extend(response.json())
-        result = response.json()
 
         url = response.links.get("next", {}).get("url")
         params = None
 
     return result
+
+
+@dataclass
+class GitHubContainer:
+    """Data storge for a single container on GitHub."""
+
+    name: str
+    """Full name of the container."""
+    id: int
+    """GitHub ID for the container."""
+    tags: list[str]
+    """Tags for the container."""
+
+
+def github_get_containers(repo: str, token: str) -> list[GitHubContainer]:
+    """Get all of the containers under the given container repo."""
+    name = f"{REPO}/{repo}"
+
+    url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
+    try:
+        result = github_api_get_paginated(url, token)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"WARNING: {name} does not exist")
+            return []
+        else:
+            raise
+
+    return [
+        GitHubContainer(name=name, id=v["id"], tags=v["metadata"]["container"]["tags"])
+        for v in result
+    ]
+
+
+def github_delete_container(github_container: GitHubContainer, token: str):
+    """Delete a container from the GitHub container repository."""
+    url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(github_container.name, safe='')}/versions"
+    github_api_delete(f"{url}/{github_container.id}", token)
 
 
 def run_with_base(
@@ -629,27 +674,24 @@ def action_delete_untagged(args: argparse.Namespace):
 
     for container in current_containers.values():
         for prefix in ["pr-", "main-"]:
-            name = f"moose-containers/{prefix}{container.name}"
+            name = f"{prefix}{container.name}"
             print(f"Checking {name}...")
 
-            url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
-            try:
-                result = github_api_get_paginated(url, token)
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 404:
-                    print(f"  WARNING: {name} does not exist")
-                    continue
-                else:
-                    raise
-
-            for entry in result:
-                if not entry["metadata"]["container"]["tags"]:
-                    id = entry["id"]
+            github_containers = github_get_containers(name, token)
+            for entry in github_containers:
+                if not entry.tags:
+                    context = f"id={entry.id}"
                     if args.dry_run:
-                        print(f"  Would delete id={id}")
+                        print(f"  Would delete {context}")
                     else:
-                        print(f"  Deleting id={id}...")
-                        github_api_delete(f"{url}/{id}", token)
+                        print(f"  Deleting {context}...")
+                    try:
+                        github_delete_container(entry, token)
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code == 400:
+                            print(f"  WARNING: Failed to delete {context}")
+                        else:
+                            raise
 
 
 def action_delete_pr(args: argparse.Namespace):
@@ -678,13 +720,43 @@ def action_delete_pr(args: argparse.Namespace):
             assert len(tags) == 1, "Should just have one tag"
             tag = tags[0]
             if tag.startswith(f"pr{pr}-"):
-                id = entry["id"]
-                context = f"{tag} id={id}"
+                id_entry = entry["id"]
+                context = f"{tag} id={id_entry}"
                 if args.dry_run:
                     print(f"  Would delete {context}")
                 else:
                     print(f"  Deleting {context}...")
-                    github_api_delete(f"{url}/{id}", token)
+                    github_api_delete(f"{url}/{id_entry}", token)
+
+
+def action_delete_all_prs(args: argparse.Namespace):
+    token = args.github_token
+    current_containers, _ = load_current()
+
+    for container in current_containers.values():
+        name = f"pr-{container.name}"
+        print(f"Checking {name}...")
+
+        github_containers = github_get_containers(name, token)
+        for entry in github_containers:
+            tags = entry.tags
+            if not entry.tags:
+                continue
+            assert len(tags) == 1, "Should just have one tag"
+            tag = tags[0]
+            context = f"{tag} id={entry.id}"
+            if args.dry_run:
+                print(f"  Would delete {context}")
+            else:
+                print(f"  Deleting {context}...")
+                try:
+                    github_delete_container(entry, token)
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 400:
+                        print(f"  WARNING: Failed to delete {context}")
+                    else:
+                        raise
+
 
 def action_release(args: argparse.Namespace):
     github_token = args.github_token
