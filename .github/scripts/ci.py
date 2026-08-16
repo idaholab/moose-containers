@@ -830,28 +830,42 @@ def post_action(github_token: str, pr: int | None = None, release: bool = False)
         release_containers = deepcopy(containers)
         [v.set_release_tag() for v in pr_containers.values()]
 
-    missing_containers = []
+    def check_exists(name: str, containers: dict[str, Container]) -> bool:
+        other_container = containers.get(name)
+        if other_container is None:
+            return False
+        print(f"  {other_container.uri}... ", end="")
+        if other_container.exists(ghcr_token):
+            print("exists")
+            return True
+        print("does not exist")
+        return False
+
+    missing_containers: list[str] = []
     for name, container in containers.items():
+        if release and not container.release:
+            continue
+
+        print(f"Checking {container.name}:{container.tag}...")
+
         if release:
             if not container.release:
                 continue
-            if release_containers[name].exists(ghcr_token):
+            if check_exists(name, release_containers):
                 continue
 
-        if pr is not None and pr_containers[name].exists(ghcr_token):
+        if pr is not None and check_exists(name, pr_containers):
             continue
 
-        if (
-            main_container := main_containers.get(name)
-        ) is not None and main_container.exists(ghcr_token):
+        if check_exists(name, main_containers):
             continue
 
         missing_containers.append(f"{container.name}:{container.tag}")
 
     if missing_containers:
         print(
-            "The following container(s) do not exist in the container registry:\n\n"
-            + "\n".join(missing_containers)
+            "\nThe following container(s) do not exist in the container registry:\n\n  - "
+            + "\n  - ".join(missing_containers)
         )
         sys.exit(1)
 
