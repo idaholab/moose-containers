@@ -691,6 +691,6 @@ jobs:
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             cmd+=("post_push")
           fi
-          python ./.github/scripts/ci.py" \
+          python ./.github/scripts/ci.py \
             "${cmd_args[@]}" \
             --github-token "${{ secrets.GITHUB_TOKEN }}"
