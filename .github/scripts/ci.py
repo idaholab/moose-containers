@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import re
 import subprocess
 import sys
 import urllib.parse
@@ -41,6 +42,8 @@ GITHUB_ACTION = os.environ.get("GITHUB_ACTIONS") == "true"
 GITHUB_API_URL = "https://api.github.com/"
 """The GitHub API url."""
 
+STAGING_PREFIX = "staging-"
+"""The prefix used for images stored in a staging repo."""
 
 class ContainersException(Exception):
     def __init__(self, name: str, message: str):
@@ -124,6 +127,16 @@ class Container:
         )
         return self._from_container
 
+    @staticmethod
+    def get_pr_tag_prefix(pr_num: int) -> str:
+        """Get the tag prefix for a pull request container."""
+        return f"pr{pr_num}-"
+
+    @staticmethod
+    def get_main_tag_prefix() -> str:
+        """Get the tag prefix for a main event container."""
+        return "main-"
+
     @property
     def tag(self) -> str:
         """Get the tag for this container."""
@@ -143,10 +156,10 @@ class Container:
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
-            tag = f"pr{self._pr_tag}-{tag}"
+            tag = f"{self.get_pr_tag_prefix(self._pr_tag)}-{tag}"
         elif self._main_tag:
             assert not self._release_tag
-            tag = f"main-{tag}"
+            tag = f"{self.get_main_tag_prefix(self._pr_tag)}-{tag}"
         return tag
 
     @property
@@ -156,10 +169,10 @@ class Container:
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
-            prefix += "staging-"
+            prefix += STAGING_PREFIX
         elif self._main_tag:
             assert not self._release_tag
-            prefix += "staging-"
+            prefix += STAGING_PREFIX
         return f"{prefix}{self.name}"
 
     @property
@@ -676,7 +689,7 @@ def action_delete_untagged(args: argparse.Namespace):
     current_containers, _ = load_current()
 
     for container in current_containers.values():
-        name = f"staging-{container.repo}"
+        name = f"{STAGING_PREFIX}{container.repo}"
         print(f"Checking {container.repo}...")
 
         github_containers = github_get_containers(name, token)
@@ -696,7 +709,7 @@ def action_delete_pr(args: argparse.Namespace):
     current_containers, _ = load_current()
 
     for container in current_containers.values():
-        name = f"moose-containers/staging-{container.name}"
+        name = f"{STAGING_PREFIX}{container.name}"
         print(f"Checking {name}...")
 
         github_containers = github_get_containers(name, token)
@@ -706,7 +719,7 @@ def action_delete_pr(args: argparse.Namespace):
                 continue
             assert len(tags) == 1, "Should just have one tag"
             tag = tags[0]
-            if tag.startswith(f"pr{pr}-"):
+            if tag.startswith(Container.get_pr_tag_prefix(pr)):
                 context = f"{tag} id={entry.id}"
                 if args.dry_run:
                     print(f"  Would delete {context}")
@@ -720,7 +733,7 @@ def action_delete_all_prs(args: argparse.Namespace):
     current_containers, _ = load_current()
 
     for container in current_containers.values():
-        name = f"pr-{container.name}"
+        name = f"{STAGING_PREFIX}{container.name}"
         print(f"Checking {name}...")
 
         github_containers = github_get_containers(name, token)
@@ -730,12 +743,13 @@ def action_delete_all_prs(args: argparse.Namespace):
                 continue
             assert len(tags) == 1, "Should just have one tag"
             tag = tags[0]
-            context = f"{tag} id={entry.id}"
-            if args.dry_run:
-                print(f"  Would delete {context}")
-            else:
-                print(f"  Deleting {context}...")
-                github_delete_container(entry, token)
+            if re.match("^pr[0-9]+-", tag):
+                context = f"{tag} id={entry.id}"
+                if args.dry_run:
+                    print(f"  Would delete {context}")
+                else:
+                    print(f"  Deleting {context}...")
+                    github_delete_container(entry, token)
 
 
 def action_release(args: argparse.Namespace):
