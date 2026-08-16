@@ -328,14 +328,16 @@ def parse_args():
     add_common(prepare_push_action)
 
     # prepare_release action
-    prepare_release_parser = action_parser.add_parser("prepare_release", parents=[parent])
+    prepare_release_parser = action_parser.add_parser(
+        "prepare_release", parents=[parent]
+    )
     add_common(prepare_release_parser, require_token=True)
 
     # post_pr action
     post_pr_parser = action_parser.add_parser(
         "post_pr",
         parents=[parent],
-        help="Perform the post-pull request action (check if containers exist)."
+        help="Perform the post-pull request action (check if containers exist).",
     )
     add_pr(post_pr_parser)
     add_base_ref(post_pr_parser)
@@ -595,7 +597,9 @@ def prepare_with_base(
             and ghcr_token
             and not release_container.exists(ghcr_token)
         ):
-            unreleased_summary.append((f"`{container.name}`", f"`{release_container.uri}`"))
+            unreleased_summary.append(
+                (f"`{container.name}`", f"`{release_container.uri}`")
+            )
 
         if base_container is not None and base_container.date > container.date:
             raise ContainersException(container.name, "date moved back")
@@ -711,81 +715,6 @@ def action_prepare_pr(args: argparse.Namespace):
         print("::endgroup::")
 
 
-def action_prepare_push(args: argparse.Namespace):
-    prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
-
-
-def delete_containers(
-    condition: Callable[[GitHubContainer], bool],
-    token: str,
-    dry_run: bool,
-    allow_missing_repos: bool,
-):
-    current_containers, _ = load_current()
-
-    missing_repos = []
-    for container in current_containers.values():
-        name = f"{STAGING_PREFIX}{container.repo}"
-        print(f"Checking {container.repo}...")
-
-        try:
-            github_containers = github_get_containers(name, token)
-        except GitHubContainerRepoMissing:
-            missing_repos.append(name)
-            print(f"  {container.repo} does not exist")
-            continue
-
-        for github_container in github_containers:
-            assert len(github_container.tags) < 2, "Should one or no tags"
-
-            if condition(github_container):
-                context = (
-                    f"{github_container.tags[0]} " if github_container.tags else ""
-                )
-                context += f"id={github_container.id}"
-                if dry_run:
-                    print(f"  Would delete {context}")
-                else:
-                    print(f"  Deleting {context}...")
-                github_delete_container(github_container, token)
-
-    if missing_repos:
-        print(
-            "\nThe following container repo(s) do not exist:\n\n"
-            + "\n".join(missing_repos)
-        )
-        if not allow_missing_repos:
-            sys.exit(1)
-
-
-def action_delete_untagged(args: argparse.Namespace):
-    def condition(github_container: GitHubContainer) -> bool:
-        return len(github_container.tags) == 0
-
-    delete_containers(condition, args.github_token, args.dry_run, False)
-
-
-def action_delete_pr(args: argparse.Namespace):
-    pr = args.pr
-
-    def condition(github_container: GitHubContainer) -> bool:
-        return len(github_container.tags) == 1 and github_container.tags[0].startswith(
-            Container.get_pr_tag_prefix(pr)
-        )
-
-    delete_containers(condition, args.github_token, args.dry_run, args.allow_missing_repos)
-
-
-def action_delete_all_prs(args: argparse.Namespace):
-    def condition(github_container: GitHubContainer) -> bool:
-        return (
-            len(github_container.tags) == 1
-            and re.match("^pr[0-9]+-", github_container.tags[0]) is not None
-        )
-
-    delete_containers(condition, args.github_token, args.dry_run, False)
-
-
 def action_prepare_release(args: argparse.Namespace):
     github_token = args.github_token
 
@@ -864,6 +793,83 @@ def action_prepare_release(args: argparse.Namespace):
             with open(os.environ["GITHUB_OUTPUT"], "a") as f:
                 f.write(f"{value}\n")
     print_section("Output", output)
+
+
+def action_prepare_push(args: argparse.Namespace):
+    prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
+
+
+def delete_containers(
+    condition: Callable[[GitHubContainer], bool],
+    token: str,
+    dry_run: bool,
+    allow_missing_repos: bool,
+):
+    current_containers, _ = load_current()
+
+    missing_repos = []
+    for container in current_containers.values():
+        name = f"{STAGING_PREFIX}{container.repo}"
+        print(f"Checking {container.repo}...")
+
+        try:
+            github_containers = github_get_containers(name, token)
+        except GitHubContainerRepoMissing:
+            missing_repos.append(name)
+            print(f"  {container.repo} does not exist")
+            continue
+
+        for github_container in github_containers:
+            assert len(github_container.tags) < 2, "Should one or no tags"
+
+            if condition(github_container):
+                context = (
+                    f"{github_container.tags[0]} " if github_container.tags else ""
+                )
+                context += f"id={github_container.id}"
+                if dry_run:
+                    print(f"  Would delete {context}")
+                else:
+                    print(f"  Deleting {context}...")
+                github_delete_container(github_container, token)
+
+    if missing_repos:
+        print(
+            "\nThe following container repo(s) do not exist:\n\n"
+            + "\n".join(missing_repos)
+        )
+        if not allow_missing_repos:
+            sys.exit(1)
+
+
+def action_delete_untagged(args: argparse.Namespace):
+    def condition(github_container: GitHubContainer) -> bool:
+        return len(github_container.tags) == 0
+
+    delete_containers(condition, args.github_token, args.dry_run, False)
+
+
+def action_delete_pr(args: argparse.Namespace):
+    pr = args.pr
+
+    def condition(github_container: GitHubContainer) -> bool:
+        return len(github_container.tags) == 1 and github_container.tags[0].startswith(
+            Container.get_pr_tag_prefix(pr)
+        )
+
+    delete_containers(
+        condition, args.github_token, args.dry_run, args.allow_missing_repos
+    )
+
+
+def action_delete_all_prs(args: argparse.Namespace):
+    def condition(github_container: GitHubContainer) -> bool:
+        return (
+            len(github_container.tags) == 1
+            and re.match("^pr[0-9]+-", github_container.tags[0]) is not None
+        )
+
+    delete_containers(condition, args.github_token, args.dry_run, False)
 
 
 def main():
