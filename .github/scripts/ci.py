@@ -306,18 +306,30 @@ def parse_args():
         )
 
     def add_pr(parser: argparse.ArgumentParser):
-        pr_parser.add_argument("pr", type=int, help="The pull request number.")
+        parser.add_argument("pr", type=int, help="The pull request number.")
 
-    # pr action
-    pr_parser = action_parser.add_parser(
-        "pr",
+    # prepare_pr action
+    prepare_pr_parser = action_parser.add_parser(
+        "prepare_pr",
         parents=[parent],
         help="Perform the pull request action.",
     )
-    pr_parser.add_argument("pr", type=int, help="The pull request number.")
-    add_base_ref(pr_parser)
-    add_pr(pr_parser)
-    add_common(pr_parser)
+    add_base_ref(prepare_pr_parser)
+    add_pr(prepare_pr_parser)
+    add_common(prepare_pr_parser)
+
+    # prepare_push action
+    prepare_push_action = action_parser.add_parser(
+        "prepare_push",
+        parents=[parent],
+        help="Perform the push action.",
+    )
+    add_base_ref(prepare_push_action)
+    add_common(prepare_push_action)
+
+    # prepare_release action
+    prepare_release_parser = action_parser.add_parser("prepare_release", parents=[parent])
+    add_common(prepare_release_parser, require_token=True)
 
     # post_pr action
     post_pr_parser = action_parser.add_parser(
@@ -328,19 +340,6 @@ def parse_args():
     add_base_ref(post_pr_parser)
     add_pr(post_pr_parser)
     add_common(post_pr_parser)
-
-    # push action
-    push_parser = action_parser.add_parser(
-        "push",
-        parents=[parent],
-        help="Perform the push action.",
-    )
-    add_base_ref(push_parser)
-    add_common(push_parser)
-
-    # release action
-    release_parser = action_parser.add_parser("release", parents=[parent])
-    add_common(release_parser, require_token=True)
 
     # delete_untagged action
     delete_untagged_parser = action_parser.add_parser(
@@ -698,7 +697,7 @@ def run_with_base(
     return build_output + packages_output + unreleased_output
 
 
-def action_pr(args: argparse.Namespace):
+def action_prepare_pr(args: argparse.Namespace):
     pr = args.pr
     github_token = args.github_token
 
@@ -712,7 +711,7 @@ def action_pr(args: argparse.Namespace):
         print("::endgroup::")
 
 
-def action_push(args: argparse.Namespace):
+def action_prepare_push(args: argparse.Namespace):
     run_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
@@ -787,7 +786,7 @@ def action_delete_all_prs(args: argparse.Namespace):
     delete_containers(condition, args.github_token, args.dry_run, False)
 
 
-def action_release(args: argparse.Namespace):
+def action_prepare_release(args: argparse.Namespace):
     github_token = args.github_token
 
     containers, _ = load_current()

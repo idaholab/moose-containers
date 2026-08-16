@@ -54,62 +54,62 @@ jobs:
       packages: read
       pull-requests: write
     outputs:
-      changed-base-rocky8: ${{ steps.parse.outputs.changed-base-rocky8 }}
-      changed-base-rocky9: ${{ steps.parse.outputs.changed-base-rocky9 }}
-      changed-base-rocky8-cuda: ${{ steps.parse.outputs.changed-base-rocky8-cuda }}
-      changed-base-ubuntu24: ${{ steps.parse.outputs.changed-base-ubuntu24 }}
-      changed-base-ubuntu24-cuda: ${{ steps.parse.outputs.changed-base-ubuntu24-cuda }}
-      changed-compiler-rocky8-cuda-gcc: ${{ steps.parse.outputs.changed-compiler-rocky8-cuda-gcc }}
-      changed-compiler-rocky8-gcc: ${{ steps.parse.outputs.changed-compiler-rocky8-gcc }}
-      changed-compiler-rocky9-gcc: ${{ steps.parse.outputs.changed-compiler-rocky9-gcc }}
-      changed-compiler-ubuntu24-clang: ${{ steps.parse.outputs.changed-compiler-ubuntu24-clang }}
-      changed-compiler-ubuntu24-gcc: ${{ steps.parse.outputs.changed-compiler-ubuntu24-gcc }}
-      changed-compiler-ubuntu24-gccmin: ${{ steps.parse.outputs.changed-compiler-ubuntu24-gccmin }}
-      changed-compiler-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.changed-compiler-ubuntu24-cuda-gcc }}
-      changed-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.changed-mpi-rocky8-cuda-gcc }}
-      changed-mpi-rocky8-gcc: ${{ steps.parse.outputs.changed-mpi-rocky8-gcc }}
-      changed-mpi-rocky8-oneapi: ${{ steps.parse.outputs.changed-mpi-rocky8-oneapi }}
-      changed-mpi-rocky9-gcc: ${{ steps.parse.outputs.changed-mpi-rocky9-gcc }}
-      changed-mpi-ubuntu24-clang: ${{ steps.parse.outputs.changed-mpi-ubuntu24-clang }}
-      changed-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.changed-mpi-ubuntu24-cuda-gcc }}
-      changed-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.changed-mpi-ubuntu24-gcc }}
-      changed-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.changed-mpi-ubuntu24-gccmin }}
-      uri-base-rocky8: ${{ steps.parse.outputs.uri-base-rocky8 }}
-      uri-base-rocky9: ${{ steps.parse.outputs.uri-base-rocky9 }}
-      uri-base-rocky8-cuda: ${{ steps.parse.outputs.uri-base-rocky8-cuda }}
-      uri-base-ubuntu24: ${{ steps.parse.outputs.uri-base-ubuntu24 }}
-      uri-base-ubuntu24-cuda: ${{ steps.parse.outputs.uri-base-ubuntu24-cuda }}
-      uri-compiler-rocky8-cuda-gcc: ${{ steps.parse.outputs.uri-compiler-rocky8-cuda-gcc }}
-      uri-compiler-rocky8-gcc: ${{ steps.parse.outputs.uri-compiler-rocky8-gcc }}
-      uri-compiler-rocky9-gcc: ${{ steps.parse.outputs.uri-compiler-rocky9-gcc }}
-      uri-compiler-ubuntu24-clang: ${{ steps.parse.outputs.uri-compiler-ubuntu24-clang }}
-      uri-compiler-ubuntu24-gcc: ${{ steps.parse.outputs.uri-compiler-ubuntu24-gcc }}
-      uri-compiler-ubuntu24-gccmin: ${{ steps.parse.outputs.uri-compiler-ubuntu24-gccmin }}
-      uri-compiler-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.uri-compiler-ubuntu24-cuda-gcc }}
-      uri-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.uri-mpi-rocky8-cuda-gcc }}
-      uri-mpi-rocky8-gcc: ${{ steps.parse.outputs.uri-mpi-rocky8-gcc }}
-      uri-mpi-rocky8-oneapi: ${{ steps.parse.outputs.uri-mpi-rocky8-oneapi }}
-      uri-mpi-rocky9-gcc: ${{ steps.parse.outputs.uri-mpi-rocky9-gcc }}
-      uri-mpi-ubuntu24-clang: ${{ steps.parse.outputs.uri-mpi-ubuntu24-clang }}
-      uri-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.uri-mpi-ubuntu24-cuda-gcc }}
-      uri-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.uri-mpi-ubuntu24-gcc }}
-      uri-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.uri-mpi-ubuntu24-gccmin }}
-      package-clang-ubuntu24: ${{ steps.parse.outputs.package-clang-ubuntu24 }}
-      package-cuda: ${{ steps.parse.outputs.package-cuda }}
-      package-gcc-rocky8: ${{ steps.parse.outputs.package-gcc-rocky8 }}
-      package-gcc-rocky9: ${{ steps.parse.outputs.package-gcc-rocky9 }}
-      package-gcc-min-ubuntu24: ${{ steps.parse.outputs.package-gcc-min-ubuntu24 }}
-      package-gcc-ubuntu24: ${{ steps.parse.outputs.package-gcc-ubuntu24 }}
-      package-gcc-ubuntu24-clang: ${{ steps.parse.outputs.package-gcc-ubuntu24-clang }}
-      package-mpich: ${{ steps.parse.outputs.package-mpich }}
-      package-mpich-rocky8-oneapi: ${{ steps.parse.outputs.package-mpich-rocky8-oneapi }}
-      package-mpich-rocky9: ${{ steps.parse.outputs.package-mpich-rocky9 }}
-      package-oneapi: ${{ steps.parse.outputs.package-oneapi }}
-      package-openmpi: ${{ steps.parse.outputs.package-openmpi }}
-      package-oras: ${{ steps.parse.outputs.package-oras }}
-      package-rocky8: ${{ steps.parse.outputs.package-rocky8 }}
-      package-rocky9: ${{ steps.parse.outputs.package-rocky9 }}
-      package-ubuntu24: ${{ steps.parse.outputs.package-ubuntu24 }}
+      changed-base-rocky8: ${{ steps.prepare.outputs.changed-base-rocky8 }}
+      changed-base-rocky9: ${{ steps.prepare.outputs.changed-base-rocky9 }}
+      changed-base-rocky8-cuda: ${{ steps.prepare.outputs.changed-base-rocky8-cuda }}
+      changed-base-ubuntu24: ${{ steps.prepare.outputs.changed-base-ubuntu24 }}
+      changed-base-ubuntu24-cuda: ${{ steps.prepare.outputs.changed-base-ubuntu24-cuda }}
+      changed-compiler-rocky8-cuda-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky8-cuda-gcc }}
+      changed-compiler-rocky8-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky8-gcc }}
+      changed-compiler-rocky9-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky9-gcc }}
+      changed-compiler-ubuntu24-clang: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-clang }}
+      changed-compiler-ubuntu24-gcc: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-gcc }}
+      changed-compiler-ubuntu24-gccmin: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-gccmin }}
+      changed-compiler-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-cuda-gcc }}
+      changed-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky8-cuda-gcc }}
+      changed-mpi-rocky8-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky8-gcc }}
+      changed-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.changed-mpi-rocky8-oneapi }}
+      changed-mpi-rocky9-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky9-gcc }}
+      changed-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-clang }}
+      changed-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-cuda-gcc }}
+      changed-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-gcc }}
+      changed-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-gccmin }}
+      uri-base-rocky8: ${{ steps.prepare.outputs.uri-base-rocky8 }}
+      uri-base-rocky9: ${{ steps.prepare.outputs.uri-base-rocky9 }}
+      uri-base-rocky8-cuda: ${{ steps.prepare.outputs.uri-base-rocky8-cuda }}
+      uri-base-ubuntu24: ${{ steps.prepare.outputs.uri-base-ubuntu24 }}
+      uri-base-ubuntu24-cuda: ${{ steps.prepare.outputs.uri-base-ubuntu24-cuda }}
+      uri-compiler-rocky8-cuda-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky8-cuda-gcc }}
+      uri-compiler-rocky8-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky8-gcc }}
+      uri-compiler-rocky9-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky9-gcc }}
+      uri-compiler-ubuntu24-clang: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-clang }}
+      uri-compiler-ubuntu24-gcc: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-gcc }}
+      uri-compiler-ubuntu24-gccmin: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-gccmin }}
+      uri-compiler-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-cuda-gcc }}
+      uri-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky8-cuda-gcc }}
+      uri-mpi-rocky8-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky8-gcc }}
+      uri-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.uri-mpi-rocky8-oneapi }}
+      uri-mpi-rocky9-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky9-gcc }}
+      uri-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-clang }}
+      uri-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-cuda-gcc }}
+      uri-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-gcc }}
+      uri-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-gccmin }}
+      package-clang-ubuntu24: ${{ steps.prepare.outputs.package-clang-ubuntu24 }}
+      package-cuda: ${{ steps.prepare.outputs.package-cuda }}
+      package-gcc-rocky8: ${{ steps.prepare.outputs.package-gcc-rocky8 }}
+      package-gcc-rocky9: ${{ steps.prepare.outputs.package-gcc-rocky9 }}
+      package-gcc-min-ubuntu24: ${{ steps.prepare.outputs.package-gcc-min-ubuntu24 }}
+      package-gcc-ubuntu24: ${{ steps.prepare.outputs.package-gcc-ubuntu24 }}
+      package-gcc-ubuntu24-clang: ${{ steps.prepare.outputs.package-gcc-ubuntu24-clang }}
+      package-mpich: ${{ steps.prepare.outputs.package-mpich }}
+      package-mpich-rocky8-oneapi: ${{ steps.prepare.outputs.package-mpich-rocky8-oneapi }}
+      package-mpich-rocky9: ${{ steps.prepare.outputs.package-mpich-rocky9 }}
+      package-oneapi: ${{ steps.prepare.outputs.package-oneapi }}
+      package-openmpi: ${{ steps.prepare.outputs.package-openmpi }}
+      package-oras: ${{ steps.prepare.outputs.package-oras }}
+      package-rocky8: ${{ steps.prepare.outputs.package-rocky8 }}
+      package-rocky9: ${{ steps.prepare.outputs.package-rocky9 }}
+      package-ubuntu24: ${{ steps.prepare.outputs.package-ubuntu24 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -120,8 +120,8 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync --frozen
-      - name: Parse
-        id: parse
+      - name: Prepare
+        id: prepare
         shell: bash
         run: |
           source .venv/bin/activate
@@ -130,13 +130,13 @@ jobs:
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
             "${prepare_cmd[@]}" \
-              pr \
+              prepare_pr \
               "${{ github.event.pull_request.number }}" \
               "${{ github.event.pull_request.base.sha }}" \
               "${prepare_args[@]}"
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             "${prepare_cmd[@]}" \
-              push \
+              prepare_push \
               "${{ github.event.before }}" \
               "${prepare_args[@]}"
           fi

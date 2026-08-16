@@ -21,24 +21,24 @@ jobs:
       contents: read
       packages: read
     outputs:
-      from-base-rocky8: ${{ steps.parse.outputs.from-base-rocky8 }}
-      from-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.from-mpi-rocky8-cuda-gcc }}
-      from-mpi-rocky8-gcc: ${{ steps.parse.outputs.from-mpi-rocky8-gcc }}
-      from-mpi-rocky8-oneapi: ${{ steps.parse.outputs.from-mpi-rocky8-oneapi }}
-      from-mpi-rocky9-gcc: ${{ steps.parse.outputs.from-mpi-rocky9-gcc }}
-      from-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.from-mpi-ubuntu24-cuda-gcc }}
-      from-mpi-ubuntu24-clang: ${{ steps.parse.outputs.from-mpi-ubuntu24-clang }}
-      from-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.from-mpi-ubuntu24-gcc }}
-      from-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.from-mpi-ubuntu24-gccmin }}
-      to-base-rocky8: ${{ steps.parse.outputs.to-base-rocky8 }}
-      to-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.to-mpi-rocky8-cuda-gcc }}
-      to-mpi-rocky8-gcc: ${{ steps.parse.outputs.to-mpi-rocky8-gcc }}
-      to-mpi-rocky8-oneapi: ${{ steps.parse.outputs.to-mpi-rocky8-oneapi }}
-      to-mpi-rocky9-gcc: ${{ steps.parse.outputs.to-mpi-rocky9-gcc }}
-      to-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.to-mpi-ubuntu24-cuda-gcc }}
-      to-mpi-ubuntu24-clang: ${{ steps.parse.outputs.to-mpi-ubuntu24-clang }}
-      to-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.to-mpi-ubuntu24-gcc }}
-      to-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.to-mpi-ubuntu24-gccmin }}
+      from-base-rocky8: ${{ steps.prepare.outputs.from-base-rocky8 }}
+      from-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.from-mpi-rocky8-cuda-gcc }}
+      from-mpi-rocky8-gcc: ${{ steps.prepare.outputs.from-mpi-rocky8-gcc }}
+      from-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.from-mpi-rocky8-oneapi }}
+      from-mpi-rocky9-gcc: ${{ steps.prepare.outputs.from-mpi-rocky9-gcc }}
+      from-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.from-mpi-ubuntu24-cuda-gcc }}
+      from-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.from-mpi-ubuntu24-clang }}
+      from-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.from-mpi-ubuntu24-gcc }}
+      from-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.from-mpi-ubuntu24-gccmin }}
+      to-base-rocky8: ${{ steps.prepare.outputs.to-base-rocky8 }}
+      to-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.to-mpi-rocky8-cuda-gcc }}
+      to-mpi-rocky8-gcc: ${{ steps.prepare.outputs.to-mpi-rocky8-gcc }}
+      to-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.to-mpi-rocky8-oneapi }}
+      to-mpi-rocky9-gcc: ${{ steps.prepare.outputs.to-mpi-rocky9-gcc }}
+      to-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.to-mpi-ubuntu24-cuda-gcc }}
+      to-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.to-mpi-ubuntu24-clang }}
+      to-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.to-mpi-ubuntu24-gcc }}
+      to-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.to-mpi-ubuntu24-gccmin }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -47,12 +47,12 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync --frozen
-      - name: Parse
-        id: parse
+      - name: Prepare
+        id: prepare
         shell: bash
         run: |
           source .venv/bin/activate
-          python ./.github/scripts/ci.py release --github-token "${{ secrets.GITHUB_TOKEN }}"
+          python ./.github/scripts/ci.py prepare_release --github-token "${{ secrets.GITHUB_TOKEN }}"
 
   merge-release:
     name: merge-release
