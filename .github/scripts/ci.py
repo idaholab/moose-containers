@@ -244,7 +244,7 @@ def load_containers(
         if container_from := values.get("from"):
             from_values[name] = container_from
             del values["from"]
-        return Container(name=name, **values)
+        return Container(name=f"moose-{name}", **values)
 
     containers = {k: build_container(k, v) for k, v in result.items()}
 
@@ -574,10 +574,10 @@ def run_with_base(
             and ghcr_token
             and not release_container.exists(ghcr_token)
         ):
-            unreleased_summary.append((f"`{name}`", f"`{release_container.uri}`"))
+            unreleased_summary.append((f"`{container.name}`", f"`{release_container.uri}`"))
 
         if base_container is not None and base_container.date > container.date:
-            raise ContainersException(name, "date moved back")
+            raise ContainersException(container.name, "date moved back")
 
         build = base_container is None or tag != base_container.tag
         if build and pr is not None:
@@ -591,9 +591,9 @@ def run_with_base(
 
         if build:
             if base_container is not None and base_container.date > container.date:
-                raise ContainersException(name, "date moved back")
+                raise ContainersException(container.name, "date moved back")
             changed[name] = True
-            summary_name = f"[`{name}`]({container.url})"
+            summary_name = f"[`{container.name}`]({container.url})"
             build_summary.append(
                 (
                     summary_name,
