@@ -22,7 +22,6 @@ jobs:
       packages: read
     outputs:
       from-base-rocky8: ${{ steps.parse.outputs.from-base-rocky8 }}
-      from-mpi-rocky8: ${{ steps.parse.outputs.from-mpi-rocky8 }}
       from-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.from-mpi-rocky8-cuda-gcc }}
       from-mpi-rocky8-gcc: ${{ steps.parse.outputs.from-mpi-rocky8-gcc }}
       from-mpi-rocky8-oneapi: ${{ steps.parse.outputs.from-mpi-rocky8-oneapi }}
@@ -32,7 +31,6 @@ jobs:
       from-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.from-mpi-ubuntu24-gcc }}
       from-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.from-mpi-ubuntu24-gccmin }}
       to-base-rocky8: ${{ steps.parse.outputs.to-base-rocky8 }}
-      to-mpi-rocky8: ${{ steps.parse.outputs.to-mpi-rocky8 }}
       to-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.to-mpi-rocky8-cuda-gcc }}
       to-mpi-rocky8-gcc: ${{ steps.parse.outputs.to-mpi-rocky8-gcc }}
       to-mpi-rocky8-oneapi: ${{ steps.parse.outputs.to-mpi-rocky8-oneapi }}
@@ -105,26 +103,6 @@ jobs:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
           from-uri: ${{ needs.prepare.outputs.from-base-rocky8 }}
           to-uri: ${{ needs.prepare.outputs.to-base-rocky8 }}
-
-  mpi-rocky8:
-    name: "mpi-rocky8"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-rocky8
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-rocky8 }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-rocky8 }}
 
   mpi-rocky8-cuda-gcc:
     name: "mpi-rocky8-cuda-gcc"
