@@ -21,18 +21,22 @@ jobs:
       contents: read
       packages: read
     outputs:
-      from-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.from-moose-mpi-rocky8-clang }}
       from-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-cuda-gcc }}
       from-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky8-gcc }}
-      from-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.from-moose-mpi-rocky8-gccmin }}
       from-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.from-moose-mpi-rocky8-oneapi }}
       from-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.from-moose-mpi-rocky9-gcc }}
-      to-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.to-moose-mpi-rocky8-clang }}
+      from-moose-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-cuda-gcc }}
+      from-moose-mpi-ubuntu24-clang: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-clang }}
+      from-moose-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-gcc }}
+      from-moose-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.from-moose-mpi-ubuntu24-gccmin }}
       to-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-cuda-gcc }}
       to-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky8-gcc }}
-      to-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.to-moose-mpi-rocky8-gccmin }}
       to-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.to-moose-mpi-rocky8-oneapi }}
       to-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.to-moose-mpi-rocky9-gcc }}
+      to-moose-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.to-moose-mpi-ubuntu24-cuda-gcc }}
+      to-moose-mpi-ubuntu24-clang: ${{ steps.parse.outputs.to-moose-mpi-ubuntu24-clang }}
+      to-moose-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.to-moose-mpi-ubuntu24-gcc }}
+      to-moose-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.to-moose-mpi-ubuntu24-gccmin }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -75,26 +79,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  moose-mpi-rocky8-clang:
-    name: "moose-mpi-rocky8-clang"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-moose-mpi-rocky8-clang
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-clang }}
-          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-clang }}
-
   moose-mpi-rocky8-cuda-gcc:
     name: "moose-mpi-rocky8-cuda-gcc"
     needs: [prepare, merge-release]
@@ -135,26 +119,6 @@ jobs:
           from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-gcc }}
           to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-gcc }}
 
-  moose-mpi-rocky8-gccmin:
-    name: "moose-mpi-rocky8-gccmin"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-moose-mpi-rocky8-gccmin
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky8-gccmin }}
-          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky8-gccmin }}
-
   moose-mpi-rocky8-oneapi:
     name: "moose-mpi-rocky8-oneapi"
     needs: [prepare, merge-release]
@@ -194,3 +158,83 @@ jobs:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
           from-uri: ${{ needs.prepare.outputs.from-moose-mpi-rocky9-gcc }}
           to-uri: ${{ needs.prepare.outputs.to-moose-mpi-rocky9-gcc }}
+
+  moose-mpi-ubuntu24-cuda-gcc:
+    name: "moose-mpi-ubuntu24-cuda-gcc"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-ubuntu24-cuda-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-ubuntu24-cuda-gcc }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-ubuntu24-cuda-gcc }}
+
+  moose-mpi-ubuntu24-clang:
+    name: "moose-mpi-ubuntu24-clang"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-ubuntu24-clang
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-ubuntu24-clang }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-ubuntu24-clang }}
+
+  moose-mpi-ubuntu24-gcc:
+    name: "moose-mpi-ubuntu24-gcc"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-ubuntu24-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-ubuntu24-gcc }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-ubuntu24-gcc }}
+
+  moose-mpi-ubuntu24-gccmin:
+    name: "moose-mpi-ubuntu24-gccmin"
+    needs: [prepare, merge-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.to-moose-mpi-ubuntu24-gccmin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Release
+        uses: ./.github/actions/release
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          from-uri: ${{ needs.prepare.outputs.from-moose-mpi-ubuntu24-gccmin }}
+          to-uri: ${{ needs.prepare.outputs.to-moose-mpi-ubuntu24-gccmin }}

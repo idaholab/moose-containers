@@ -3,10 +3,10 @@
 #
 # Required build arguments:
 #
+#   CONTAINER_NAME: Name for the container
 #   CUDA_VERSION: Version of CUDA
 #   UBUNTU_VERSION: Version of ubuntu
 #   ORAS_VERSION: Version of oras
-#   URI: URI for the built image
 #
 
 ARG CUDA_VERSION=unset
@@ -23,10 +23,10 @@ ARG ORAS_VERSION
 RUN /bin/bash /root/install_oras.bash "$ORAS_VERSION" /usr/local/bin && rm /root/install_oras.bash
 
 # Add to environment
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
+RUN test -n "$CONTAINER_NAME" && \
     test -d /usr/local/cuda && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     echo "export CUDA_DIR=/usr/local/cuda" >> ${MOOSE_ENV} && \
     chmod +x ${MOOSE_ENV}

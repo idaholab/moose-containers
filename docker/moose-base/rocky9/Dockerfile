@@ -3,9 +3,9 @@
 #
 # Required build arguments:
 #
+#   CONTAINER_NAME: Name for the container
 #   ROCKY_VERSION: Version of rocky9
 #   ORAS_VERSION: Version of oras
-#   URI: URI for the built image
 #
 
 FROM rockylinux/rockylinux:9.7.20251123
@@ -26,8 +26,8 @@ RUN dnf install -y python python-devel python-pip python-setuptools && \
     dnf clean all
 
 # Add to environment
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+RUN test -n "$CONTAINER_NAME" && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     chmod +x ${MOOSE_ENV}

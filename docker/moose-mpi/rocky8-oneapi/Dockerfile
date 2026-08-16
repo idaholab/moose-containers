@@ -4,6 +4,7 @@
 # Required build arguments:
 #
 #   BUILD_FROM: FROM image
+#   CONTAINER_NAME: Name for the container
 #   ONEAPI_VERSION: Version of Intel oneapi
 #   MPICH_VERSION: Version of mpich
 #   URI: URI for the built image
@@ -19,9 +20,8 @@ RUN dnf install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-openmp intel-one
 
 # Store the variables we need from the "setvars.sh" script and add to environment
 ARG ONEAPI_SETVARS=/opt/intel/oneapi/moose_setvars.sh
-COPY rocky8-oneapi/files/setup_vars.bash /root/setup_vars.bash
-RUN /bin/bash /root/setup_vars.bash "$ONEAPI_SETVARS" && \
-    rm /root/setup_vars.bash
+RUN --mount=type=bind,source=rocky8-oneapi/files/setup_vars.bash,target=/root/setup_vars.bash \
+    /bin/bash /root/setup_vars.bash "$ONEAPI_SETVARS"
 
 # Check oneapi version
 ARG ONEAPI_VERSION
@@ -38,8 +38,8 @@ ARG BUILD_JOBS=4
 # Install mpich
 ARG MPICH_DIR=/opt/mpich
 ARG MPICH_VERSION
-COPY files/install_mpich.bash /root/install_mpich.bash
-RUN . "$MOOSE_ENV" && \
+RUN --mount=type=bind,source=files/install_mpich.bash,target=/root/install_mpich.bash \
+    . "$MOOSE_ENV" && \
     . "$ONEAPI_SETVARS" && \
     /bin/bash /root/install_mpich.bash \
         "$MPICH_VERSION" \
@@ -49,12 +49,11 @@ RUN . "$MOOSE_ENV" && \
         FC=ifx \
         F77=ifx \
         F90=ifx \
-        --with-device=ch3:nemesis && \
-    rm /root/install_mpich.bash
+        --with-device=ch3:nemesis
 
 # Expose oneapi and MPI directory as env vars
-ARG URI
+ARG CONTAINER_NAME
 RUN test -f ${MOOSE_ENV} && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     echo ". ${ONEAPI_SETVARS}" >> ${MOOSE_ENV} && \
     echo "export MOOSE_MPICH_DIR=${MPICH_DIR}" >> ${MOOSE_ENV}

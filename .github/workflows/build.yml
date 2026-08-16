@@ -27,16 +27,18 @@ jobs:
       changed-moose-compiler-rocky8-cuda-gcc: ${{ steps.parse.outputs.changed-moose-compiler-rocky8-cuda-gcc }}
       changed-moose-compiler-rocky8-gcc: ${{ steps.parse.outputs.changed-moose-compiler-rocky8-gcc }}
       changed-moose-compiler-rocky9-gcc: ${{ steps.parse.outputs.changed-moose-compiler-rocky9-gcc }}
+      changed-moose-compiler-ubuntu24-clang: ${{ steps.parse.outputs.changed-moose-compiler-ubuntu24-clang }}
       changed-moose-compiler-ubuntu24-gcc: ${{ steps.parse.outputs.changed-moose-compiler-ubuntu24-gcc }}
+      changed-moose-compiler-ubuntu24-gccmin: ${{ steps.parse.outputs.changed-moose-compiler-ubuntu24-gccmin }}
       changed-moose-compiler-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.changed-moose-compiler-ubuntu24-cuda-gcc }}
-      changed-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.changed-moose-mpi-rocky8-clang }}
       changed-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.changed-moose-mpi-rocky8-cuda-gcc }}
       changed-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.changed-moose-mpi-rocky8-gcc }}
-      changed-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.changed-moose-mpi-rocky8-gccmin }}
       changed-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.changed-moose-mpi-rocky8-oneapi }}
       changed-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.changed-moose-mpi-rocky9-gcc }}
+      changed-moose-mpi-ubuntu24-clang: ${{ steps.parse.outputs.changed-moose-mpi-ubuntu24-clang }}
       changed-moose-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.changed-moose-mpi-ubuntu24-cuda-gcc }}
       changed-moose-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.changed-moose-mpi-ubuntu24-gcc }}
+      changed-moose-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.changed-moose-mpi-ubuntu24-gccmin }}
       uri-moose-base-rocky8: ${{ steps.parse.outputs.uri-moose-base-rocky8 }}
       uri-moose-base-rocky9: ${{ steps.parse.outputs.uri-moose-base-rocky9 }}
       uri-moose-base-rocky8-cuda: ${{ steps.parse.outputs.uri-moose-base-rocky8-cuda }}
@@ -45,23 +47,25 @@ jobs:
       uri-moose-compiler-rocky8-cuda-gcc: ${{ steps.parse.outputs.uri-moose-compiler-rocky8-cuda-gcc }}
       uri-moose-compiler-rocky8-gcc: ${{ steps.parse.outputs.uri-moose-compiler-rocky8-gcc }}
       uri-moose-compiler-rocky9-gcc: ${{ steps.parse.outputs.uri-moose-compiler-rocky9-gcc }}
+      uri-moose-compiler-ubuntu24-clang: ${{ steps.parse.outputs.uri-moose-compiler-ubuntu24-clang }}
       uri-moose-compiler-ubuntu24-gcc: ${{ steps.parse.outputs.uri-moose-compiler-ubuntu24-gcc }}
+      uri-moose-compiler-ubuntu24-gccmin: ${{ steps.parse.outputs.uri-moose-compiler-ubuntu24-gccmin }}
       uri-moose-compiler-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
-      uri-moose-mpi-rocky8-clang: ${{ steps.parse.outputs.uri-moose-mpi-rocky8-clang }}
       uri-moose-mpi-rocky8-cuda-gcc: ${{ steps.parse.outputs.uri-moose-mpi-rocky8-cuda-gcc }}
       uri-moose-mpi-rocky8-gcc: ${{ steps.parse.outputs.uri-moose-mpi-rocky8-gcc }}
-      uri-moose-mpi-rocky8-gccmin: ${{ steps.parse.outputs.uri-moose-mpi-rocky8-gccmin }}
       uri-moose-mpi-rocky8-oneapi: ${{ steps.parse.outputs.uri-moose-mpi-rocky8-oneapi }}
       uri-moose-mpi-rocky9-gcc: ${{ steps.parse.outputs.uri-moose-mpi-rocky9-gcc }}
+      uri-moose-mpi-ubuntu24-clang: ${{ steps.parse.outputs.uri-moose-mpi-ubuntu24-clang }}
       uri-moose-mpi-ubuntu24-cuda-gcc: ${{ steps.parse.outputs.uri-moose-mpi-ubuntu24-cuda-gcc }}
       uri-moose-mpi-ubuntu24-gcc: ${{ steps.parse.outputs.uri-moose-mpi-ubuntu24-gcc }}
-      package-clang-rocky8: ${{ steps.parse.outputs.package-clang-rocky8 }}
+      uri-moose-mpi-ubuntu24-gccmin: ${{ steps.parse.outputs.uri-moose-mpi-ubuntu24-gccmin }}
+      package-clang-ubuntu24: ${{ steps.parse.outputs.package-clang-ubuntu24 }}
       package-cuda: ${{ steps.parse.outputs.package-cuda }}
-      package-gcc-min-rocky8: ${{ steps.parse.outputs.package-gcc-min-rocky8 }}
       package-gcc-rocky8: ${{ steps.parse.outputs.package-gcc-rocky8 }}
-      package-gcc-rocky8-clang: ${{ steps.parse.outputs.package-gcc-rocky8-clang }}
       package-gcc-rocky9: ${{ steps.parse.outputs.package-gcc-rocky9 }}
+      package-gcc-min-ubuntu24: ${{ steps.parse.outputs.package-gcc-min-ubuntu24 }}
       package-gcc-ubuntu24: ${{ steps.parse.outputs.package-gcc-ubuntu24 }}
+      package-gcc-ubuntu24-clang: ${{ steps.parse.outputs.package-gcc-ubuntu24-clang }}
       package-mpich: ${{ steps.parse.outputs.package-mpich }}
       package-mpich-rocky8-oneapi: ${{ steps.parse.outputs.package-mpich-rocky8-oneapi }}
       package-mpich-rocky9: ${{ steps.parse.outputs.package-mpich-rocky9 }}
@@ -171,54 +175,54 @@ jobs:
             ROCKY_VERSION=${{ needs.prepare.outputs.package-rocky9 }}
             ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
 
-  # moose-base-ubuntu24:
-  #   name: "moose-base-ubuntu24"
-  #   needs: [prepare]
-  #   if: >-
-  #     !cancelled()
-  #     && needs.prepare.outputs.changed-moose-base-ubuntu24
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-base
-  #         file: docker/moose-base/ubuntu24/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
-  #         build-args: |
-  #           UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
-  #           ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+  moose-base-ubuntu24:
+    name: "moose-base-ubuntu24"
+    needs: [prepare]
+    if: >-
+      !cancelled()
+      && needs.prepare.outputs.changed-moose-base-ubuntu24
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-base
+          file: docker/moose-base/ubuntu24/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
+          build-args: |
+            UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
+            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
 
-  # moose-base-ubuntu24-cuda:
-  #   name: "moose-base-ubuntu24-cuda"
-  #   needs: [prepare]
-  #   if: >-
-  #     !cancelled()
-  #     && needs.prepare.outputs.changed-moose-base-ubuntu24-cuda
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-base
-  #         file: docker/moose-base/ubuntu24-cuda/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24-cuda }}
-  #         build-args: |
-  #           CUDA_VERSION=${{ needs.prepare.outputs.package-cuda }}
-  #           UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
-  #           ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+  moose-base-ubuntu24-cuda:
+    name: "moose-base-ubuntu24-cuda"
+    needs: [prepare]
+    if: >-
+      !cancelled()
+      && needs.prepare.outputs.changed-moose-base-ubuntu24-cuda
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-base
+          file: docker/moose-base/ubuntu24-cuda/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-base-ubuntu24-cuda }}
+          build-args: |
+            CUDA_VERSION=${{ needs.prepare.outputs.package-cuda }}
+            UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
+            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
 
   moose-compiler-rocky8-gcc:
     name: "moose-compiler-rocky8-gcc"
@@ -238,7 +242,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky8-gcc }}
           build-args: |
@@ -263,7 +267,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky8-cuda-gcc }}
           build-args: |
@@ -288,70 +292,96 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-compiler/rocky-gcc
+          context: docker/moose-compiler
           file: docker/moose-compiler/rocky-gcc/Dockerfile
           uri: ${{ needs.prepare.outputs.uri-moose-compiler-rocky9-gcc }}
           build-args: |
             BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-rocky9 }}
             GCC_VERSION=${{ needs.prepare.outputs.package-gcc-rocky9 }}
 
-  # moose-compiler-ubuntu24-gcc:
-  #   name: "moose-compiler-ubuntu24-gcc"
-  #   needs: [prepare, moose-base-ubuntu24]
-  #   runs-on: ubuntu-24.04
-  #   if: >-
-  #     !cancelled()
-  #     && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24.result)
-  #     && needs.prepare.outputs.changed-moose-compiler-ubuntu24-gcc
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-compiler/ubuntu-gcc
-  #         file: docker/moose-compiler/ubuntu-gcc/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
-  #         build-args: |
-  #           BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
-  #           GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
-
-  # moose-compiler-ubuntu24-cuda-gcc:
-  #   name: "moose-compiler-ubuntu24-cuda-gcc"
-  #   needs: [prepare, moose-base-ubuntu24-cuda]
-  #   if: >-
-  #     !cancelled()
-  #     && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24-cuda.result)
-  #     && needs.prepare.outputs.changed-moose-compiler-ubuntu24-cuda-gcc
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-compiler/ubuntu-gcc
-  #         file: docker/moose-compiler/ubuntu-gcc/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
-  #         build-args: |
-  #           BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24-cuda }}
-  #           GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
-
-  moose-mpi-rocky8-clang:
-    name: "moose-mpi-rocky8-clang"
-    needs: [prepare, moose-base-rocky8]
+  moose-compiler-ubuntu24-clang:
+    name: "moose-compiler-ubuntu24-clang"
+    needs: [prepare, moose-base-ubuntu24]
+    runs-on: ubuntu-24.04
     if: >-
       !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-rocky8.result)
-      && needs.prepare.outputs.changed-moose-mpi-rocky8-clang
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24.result)
+      && needs.prepare.outputs.changed-moose-compiler-ubuntu24-clang
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-compiler
+          file: docker/moose-compiler/ubuntu-clang/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-clang }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
+            CLANG_VERSION=${{ needs.prepare.outputs.package-clang-ubuntu24 }}
+            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24-clang }}
+
+  moose-compiler-ubuntu24-gcc:
+    name: "moose-compiler-ubuntu24-gcc"
+    needs: [prepare, moose-base-ubuntu24]
+    runs-on: ubuntu-24.04
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24.result)
+      && needs.prepare.outputs.changed-moose-compiler-ubuntu24-gcc
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-compiler
+          file: docker/moose-compiler/ubuntu-gcc/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
+            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
+
+  moose-compiler-ubuntu24-gccmin:
+    name: "moose-compiler-ubuntu24-gccmin"
+    needs: [prepare, moose-base-ubuntu24]
+    runs-on: ubuntu-24.04
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24.result)
+      && needs.prepare.outputs.changed-moose-compiler-ubuntu24-gccmin
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-compiler
+          file: docker/moose-compiler/ubuntu-gcc/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gccmin }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24 }}
+            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-min-ubuntu24 }}
+
+  moose-compiler-ubuntu24-cuda-gcc:
+    name: "moose-compiler-ubuntu24-cuda-gcc"
+    needs: [prepare, moose-base-ubuntu24-cuda]
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-ubuntu24-cuda.result)
+      && needs.prepare.outputs.changed-moose-compiler-ubuntu24-cuda-gcc
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -363,14 +393,12 @@ jobs:
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-mpi
-          file: docker/moose-mpi/rocky8-clang/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-moose-mpi-rocky8-clang }}
+          context: docker/moose-compiler
+          file: docker/moose-compiler/ubuntu-gcc/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
           build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-rocky8 }}
-            CLANG_VERSION=${{ needs.prepare.outputs.package-clang-rocky8 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-rocky8-clang }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-ubuntu24-cuda }}
+            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
 
   moose-mpi-rocky8-cuda-gcc:
     name: "moose-mpi-rocky8-cuda-gcc"
@@ -425,32 +453,6 @@ jobs:
             MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
             OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
 
-  moose-mpi-rocky8-gccmin:
-    name: "moose-mpi-rocky8-gccmin"
-    needs: [prepare, moose-base-rocky8]
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.moose-base-rocky8.result)
-      && needs.prepare.outputs.changed-moose-mpi-rocky8-gccmin
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Build
-        uses: ./.github/actions/build
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/moose-mpi
-          file: docker/moose-mpi/rocky8-gccmin/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-moose-mpi-rocky8-gccmin }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-base-rocky8 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-min-rocky8 }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-
   moose-mpi-rocky8-oneapi:
     name: "moose-mpi-rocky8-oneapi"
     needs: [prepare, moose-compiler-rocky8-gcc]
@@ -503,75 +505,130 @@ jobs:
             MPICH_VERSION=${{ needs.prepare.outputs.package-mpich-rocky9 }}
             OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
 
-  # moose-mpi-ubuntu24-cuda-gcc:
-  #   name: "moose-mpi-ubuntu24-cuda-gcc"
-  #   needs: [prepare, moose-compiler-ubuntu24-cuda-gcc]
-  #   if: >-
-  #     !cancelled()
-  #     && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-cuda-gcc.result)
-  #     && needs.prepare.outputs.changed-moose-mpi-ubuntu24-cuda-gcc
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-mpi
-  #         file: docker/moose-mpi/ubuntu-gcc/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-cuda-gcc }}
-  #         build-args: |
-  #           BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
-  #           MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-  #           OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+  moose-mpi-ubuntu24-clang:
+    name: "moose-mpi-ubuntu24-clang"
+    needs: [prepare, moose-compiler-ubuntu24-clang]
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-clang.result)
+      && needs.prepare.outputs.changed-moose-mpi-ubuntu24-clang
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-mpi
+          file: docker/moose-mpi/ubuntu/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-clang }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-clang }}
+            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
+            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
 
-  # moose-mpi-ubuntu24-gcc:
-  #   name: "moose-mpi-ubuntu24-gcc"
-  #   needs: [prepare, moose-compiler-ubuntu24-gcc]
-  #   if: >-
-  #     !cancelled()
-  #     && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-gcc.result)
-  #     && needs.prepare.outputs.changed-moose-mpi-ubuntu24-gcc
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
-  #     - name: Build
-  #       uses: ./.github/actions/build
-  #       with:
-  #         registry-token: ${{ secrets.GITHUB_TOKEN }}
-  #         context: docker/moose-mpi
-  #         file: docker/moose-mpi/ubuntu-gcc/Dockerfile
-  #         uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-gcc }}
-  #         build-args: |
-  #           BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
-  #           MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-  #           OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+  moose-mpi-ubuntu24-cuda-gcc:
+    name: "moose-mpi-ubuntu24-cuda-gcc"
+    needs: [prepare, moose-compiler-ubuntu24-cuda-gcc]
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-cuda-gcc.result)
+      && needs.prepare.outputs.changed-moose-mpi-ubuntu24-cuda-gcc
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-mpi
+          file: docker/moose-mpi/ubuntu/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-cuda-gcc }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-cuda-gcc }}
+            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
+            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+
+  moose-mpi-ubuntu24-gcc:
+    name: "moose-mpi-ubuntu24-gcc"
+    needs: [prepare, moose-compiler-ubuntu24-gcc]
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-gcc.result)
+      && needs.prepare.outputs.changed-moose-mpi-ubuntu24-gcc
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-mpi
+          file: docker/moose-mpi/ubuntu/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-gcc }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gcc }}
+            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
+            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+
+  moose-mpi-ubuntu24-gccmin:
+    name: "moose-mpi-ubuntu24-gccmin"
+    needs: [prepare, moose-compiler-ubuntu24-gccmin]
+    if: >-
+      !cancelled()
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-compiler-ubuntu24-gccmin.result)
+      && needs.prepare.outputs.changed-moose-mpi-ubuntu24-gccmin
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: docker/moose-mpi
+          file: docker/moose-mpi/ubuntu/Dockerfile
+          uri: ${{ needs.prepare.outputs.uri-moose-mpi-ubuntu24-gccmin }}
+          build-args: |
+            BUILD_FROM=${{ needs.prepare.outputs.uri-moose-compiler-ubuntu24-gccmin }}
+            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
 
   finalize:
     name: "finalize"
     needs:
-      - moose-mpi-rocky8-clang
       - moose-mpi-rocky8-cuda-gcc
       - moose-mpi-rocky8-gcc
-      - moose-mpi-rocky8-gccmin
       - moose-mpi-rocky8-oneapi
       - moose-mpi-rocky9-gcc
+      - moose-mpi-ubuntu24-clang
+      - moose-mpi-ubuntu24-cuda-gcc
+      - moose-mpi-ubuntu24-gcc
+      - moose-mpi-ubuntu24-gccmin
     if: >-
       !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-clang.result)
       && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-cuda-gcc.result)
       && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-gccmin.result)
       && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky8-oneapi.result)
       && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-rocky9-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-ubuntu24-clang.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-ubuntu24-cuda-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-ubuntu24-gcc.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.moose-mpi-ubuntu24-gccmin.result)
     runs-on: ubuntu-slim
     steps:
       - name: Finalize

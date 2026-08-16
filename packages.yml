@@ -4,19 +4,19 @@ rocky9: "9.7"
 ubuntu24: "24.04"
 
 # version defaults
-cuda: "13.2.1"
+cuda: "13.3.0"
 mpich: "5.0.1"
 openmpi: "5.0.10"
-oneapi: "2026.0.0"
-oras: "1.3.2"
+oneapi: "2026.1.1"
+oras: "1.3.3"
 
 # compiler versions
-clang-rocky8: "21.1.8"
-gcc-min-rocky8: "9.2.1"
+clang-ubuntu24: "22.1.8"
 gcc-rocky8: "13.3.1"
 gcc-rocky9: "13.3.1"
 gcc-ubuntu24: "14.2.0"
-gcc-rocky8-clang: "15.2.1"
+gcc-min-ubuntu24: "9.5.0"
+gcc-ubuntu24-clang: "14.2.0"
 
 # alternate versions
 mpich-rocky8-oneapi: "4.3.2"

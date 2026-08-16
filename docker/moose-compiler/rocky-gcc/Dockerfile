@@ -8,6 +8,7 @@
 # Required build arguments:
 #
 #   BUILD_FROM: FROM image
+#   CONTAINER_NAME: Name for the container
 #   GCC_VERSION: Full version of GCC to install
 #   URI: URI for the built image
 #
@@ -24,14 +25,22 @@ RUN test -n "$GCC_VERSION" && \
         gcc-toolset-${GCC_MAJOR_VERSION}-gdb make findutils zlib-devel && \
     dnf clean all
 
+# Install valgrind
+ARG VALGRIND_DIR=/opt/valgrind
+ARG VALGRIND_VERSION=3.27.1
+RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
+    GCC_MAJOR_VERSION="$(echo "$GCC_VERSION" | cut -d'.' -f1)" && \
+    . /opt/rh/gcc-toolset-${GCC_MAJOR_VERSION}/enable && \
+    eval "/bin/bash /root/install_valgrind.bash \"$VALGRIND_VERSION\" \"$VALGRIND_DIR\""
+
 # Add to environment
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
 RUN test -f ${MOOSE_ENV} && \
-    test -n "$URI" && \
+    test -n "$CONTAINER_NAME" && \
     GCC_MAJOR_VERSION="$(echo "$GCC_VERSION" | cut -d'.' -f1)" && \
-    test -f "/opt/rh/gcc-toolset-${GCC_MAJOR_VERSION}/enable" && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
+    echo "export PATH=${VALGRIND_DIR}/bin:${PATH}" >> ${MOOSE_ENV} && \
     echo ". /opt/rh/gcc-toolset-${GCC_MAJOR_VERSION}/enable" >> ${MOOSE_ENV}
 
 # Make sure GCC version matches as expected

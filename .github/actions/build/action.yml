@@ -78,6 +78,14 @@ runs:
         else
           echo "tags=${{ inputs.uri }}" >> $GITHUB_OUTPUT
         fi
+
+        echo "::group::Determine container name"
+        container_name="${{ inputs.uri }}"
+        container_name="${container_name##*/}"
+        container_name="${container_name%%:*}"
+        container_name_out="container_name=${container_name}"
+        echo "$container_name_out"
+        echo "$container_name_out" >> $GITHUB_OUTPUT
         echo "::endgroup::"
 
     - name: Log in to GHCR
@@ -101,5 +109,5 @@ runs:
         cache-to: ${{ steps.prepare.outputs.cache_to }}
         build-args: |
           BUILD_JOBS=4
-          URI=${{ inputs.uri }}
+          CONTAINER_NAME=${{ steps.prepare.outputs.container_name }}
           ${{ inputs.build-args }}

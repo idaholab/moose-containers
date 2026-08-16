@@ -23,7 +23,7 @@ apt-get dist-upgrade -y
 apt-get install -y --no-install-recommends \
   bzip2 git git-lfs tar vim wget rsync hostname jq diffutils file unzip \
   findutils procps xz-utils file which time curl ca-certificates zlib1g-dev \
-  python3 python3-yaml python3-jinja2 curl
+  python3 python3-yaml python3-jinja2 curl pkgconf gdb openssh-client
 
 # Check python version
 which python${PYTHON_VERSION}

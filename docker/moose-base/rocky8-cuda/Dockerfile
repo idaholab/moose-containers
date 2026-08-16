@@ -3,10 +3,10 @@
 #
 # Required build arguments:
 #
+#   CONTAINER_NAME: Name for the container
 #   CUDA_VERSION: Version of CUDA
 #   ORAS_VERSION: Version of oras
 #   ROCKY_VERSION: Version of rocky8
-#   URI: URI for the built image
 #
 
 ARG CUDA_VERSION=unset
@@ -32,11 +32,11 @@ RUN dnf install -y libnccl libnccl-devel libnccl-static && \
     dnf clean all
 
 # Add to environment
-ARG URI
+ARG CONTAINER_NAME
 ARG MOOSE_ENV=/moose_env.sh
-RUN test -n "$URI" && \
+RUN test -n "$CONTAINER_NAME" && \
     test -d /usr/local/cuda && \
     echo "#!/bin/sh" >> ${MOOSE_ENV} && \
-    echo "# From ${URI}" >> ${MOOSE_ENV} && \
+    echo "# From ${CONTAINER_NAME}" >> ${MOOSE_ENV} && \
     echo "export CUDA_DIR=/usr/local/cuda" >> ${MOOSE_ENV} && \
     chmod +x ${MOOSE_ENV}
