@@ -2,10 +2,8 @@ name: Delete untagged images
 
 on:
   workflow_dispatch:
-  # Daily at 2 AM
-  schedule:
-    - cron: "0 2 * * *"
-      timezone: "America/Denver"
+  push:
+    branches: [main]
 
 jobs:
   delete:
@@ -21,7 +19,7 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync --frozen
-      - name: Deleted untagged images
+      - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1

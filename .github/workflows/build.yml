@@ -12,14 +12,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  delete-cache:
-    name: delete-cache
-    if: >
-      github.event_name == 'push' ||
-      (
-        github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
-      )
+  delete-images:
+    name: delete-images
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -32,7 +27,7 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync --frozen
-      - name: Delete PR images
+      - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
@@ -41,13 +36,44 @@ jobs:
           python ./.github/scripts/ci.py \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
+            --only-images \
+            --allow-missing-repos \
+            --github-token ${{ github.token }}
+
+  delete-cache:
+    name: delete-cache
+    if: >
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Delete
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py \
+            delete_pr \
+            "${{ github.event.pull_request.number }}" \
+            --only-cache \
             --allow-missing-repos \
             --github-token ${{ github.token }}
 
   prepare:
     name: prepare
-    needs: [delete-cache]
-    if: always() && needs.delete-cache.result != 'failure'
+    needs: [delete-images, delete-cache]
+    if: always() && needs.delete-images.result != 'failure' && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -670,6 +696,30 @@ jobs:
       && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
       && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Finalize
-        run: echo "it worked"
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Check
+        shell: bash
+        run: |
+          source .venv/bin/activate
+
+          cmd_args=()
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            cmd_args+=("post_pr" "${{ github.event.pull_request.number }}")
+          elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
+            cmd_args+=("post_push")
+          fi
+          python ./.github/scripts/ci.py \
+            "${cmd_args[@]}" \
+            --github-token "${{ secrets.GITHUB_TOKEN }}"

@@ -51,7 +51,6 @@ runs:
           {
             echo "cache_from<<EOF"
             echo "type=registry,ref=${cache_uri}"
-            echo "type=registry,ref=${{ inputs.uri }}"
             echo "EOF"
           } >> $GITHUB_OUTPUT
         else
