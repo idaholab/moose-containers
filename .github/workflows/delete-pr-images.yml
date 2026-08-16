@@ -1,11 +1,8 @@
-name: Delete untagged images
+name: Delete PR images
 
 on:
-  workflow_dispatch:
-  # Daily at 2 AM
-  schedule:
-    - cron: "0 2 * * *"
-      timezone: "America/Denver"
+  pull_request:
+    types: [closed]
 
 jobs:
   delete:
@@ -21,12 +18,13 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync --frozen
-      - name: Deleted untagged images
+      - name: Deleted PR images
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
         run: |
           source .venv/bin/activate
           python ./.github/scripts/ci.py \
-            delete_untagged \
+            delete_pr \
+            "${{ github.event.pull_request.number }}" \
             --github-token ${{ github.token }}
