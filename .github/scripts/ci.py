@@ -158,10 +158,10 @@ class Container:
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
-            tag = f"{self.get_pr_tag_prefix(self._pr_tag)}-{tag}"
+            tag = f"{self.get_pr_tag_prefix(self._pr_tag)}{tag}"
         elif self._main_tag:
             assert not self._release_tag
-            tag = f"{self.get_main_tag_prefix()}-{tag}"
+            tag = f"{self.get_main_tag_prefix()}{tag}"
         return tag
 
     @property
