@@ -5,9 +5,9 @@ import re
 import subprocess
 import sys
 import urllib.parse
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable
 
 import jinja2
 import requests
