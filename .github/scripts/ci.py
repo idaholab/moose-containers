@@ -314,8 +314,8 @@ def parse_args():
         parents=[parent],
         help="Perform the pull request action.",
     )
-    add_base_ref(prepare_pr_parser)
     add_pr(prepare_pr_parser)
+    add_base_ref(prepare_pr_parser)
     add_common(prepare_pr_parser)
 
     # prepare_push action
@@ -337,8 +337,8 @@ def parse_args():
         parents=[parent],
         help="Perform the post-pull request action (check if containers exist)."
     )
-    add_base_ref(post_pr_parser)
     add_pr(post_pr_parser)
+    add_base_ref(post_pr_parser)
     add_common(post_pr_parser)
 
     # delete_untagged action
