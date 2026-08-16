@@ -714,6 +714,10 @@ def action_prepare_pr(args: argparse.Namespace):
         print("::endgroup::")
 
 
+def action_prepare_push(args: argparse.Namespace):
+    prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
+
+
 def action_prepare_release(args: argparse.Namespace):
     github_token = args.github_token
 
@@ -792,10 +796,6 @@ def action_prepare_release(args: argparse.Namespace):
             with open(os.environ["GITHUB_OUTPUT"], "a") as f:
                 f.write(f"{value}\n")
     print_section("Output", output)
-
-
-def action_prepare_push(args: argparse.Namespace):
-    prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
 def delete_containers(
