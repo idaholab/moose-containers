@@ -1,4 +1,0 @@
-pyyaml
-requests
-jinja2
-tabulate

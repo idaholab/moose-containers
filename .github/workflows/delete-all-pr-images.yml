@@ -1,0 +1,28 @@
+name: Delete all PR images
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Delete
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py \
+            delete_all_prs \
+            --github-token ${{ github.token }}
