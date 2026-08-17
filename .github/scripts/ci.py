@@ -910,6 +910,8 @@ def delete_containers(
             continue
 
         for github_container in github_containers:
+            if 'latest' in github_container.tags:
+                continue
             assert len(github_container.tags) < 2, "Should one or no tags"
 
             if condition(github_container):
