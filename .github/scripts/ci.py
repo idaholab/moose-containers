@@ -551,6 +551,10 @@ class GitHubContainer:
     """GitHub ID for the container."""
     tags: list[str]
     """Tags for the container."""
+    sha: str
+    """The SHA for the container."""
+    uri: str
+    """URI for the container (sha256 definition, no tags)."""
 
 
 class GitHubContainerRepoMissing(Exception):
@@ -571,7 +575,13 @@ def github_get_containers(repo: str, token: str) -> list[GitHubContainer]:
             raise
 
     return [
-        GitHubContainer(name=name, id=v["id"], tags=v["metadata"]["container"]["tags"])
+        GitHubContainer(
+            name=name,
+            id=v["id"],
+            tags=v["metadata"]["container"]["tags"],
+            sha=v["name"].split(":")[-1],
+            uri=f"{URI_PREFIX}/{repo}@{v['name']}",
+        )
         for v in result
     ]
 
@@ -902,6 +912,7 @@ def delete_containers(
     current_containers, _ = load_current()
 
     missing_repos = []
+    num_deleted = 0
     for container in current_containers.values():
         name = f"{STAGING_PREFIX}{container.repo}"
         print(f"Checking {name}...")
@@ -914,20 +925,25 @@ def delete_containers(
             continue
 
         for github_container in github_containers:
-            if 'latest' in github_container.tags:
+            if "latest" in github_container.tags:
                 continue
+
             assert len(github_container.tags) < 2, "Should one or no tags"
 
             if condition(github_container):
-                context = (
-                    f"{github_container.tags[0]} " if github_container.tags else ""
-                )
-                context += f"id={github_container.id}"
+                if len(github_container.tags) == 1:
+                    context = github_container.uri.replace("@", f":{github_container.tags[0]}@")
+                else:
+                    context = github_container.uri
+                context += f" id={github_container.id}"
                 if dry_run:
                     print(f"  Would delete {context}")
                 else:
                     print(f"  Deleting {context}...")
-                github_delete_container(github_container, token)
+                    github_delete_container(github_container, token)
+                    num_deleted += 1
+
+    print(f"\nDeleted {num_deleted} image(s)")
 
     if missing_repos:
         print(
