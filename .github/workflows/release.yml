@@ -305,6 +305,6 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          python ./.github/scripts/ci.py" \
+          python ./.github/scripts/ci.py \
             post_release \
             --github-token "${{ secrets.GITHUB_TOKEN }}"
