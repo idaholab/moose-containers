@@ -640,7 +640,8 @@ def prepare_with_base(
         if base_container is not None and base_container.date > container.date:
             raise ContainersException(container.name, "date moved back")
 
-        build = base_container is None or container.raw_tag != base_container.raw_tag
+        build = True
+        # build = base_container is None or container.raw_tag != base_container.raw_tag
 
         if build and pr is not None:
             container.set_pr_tag(pr)
