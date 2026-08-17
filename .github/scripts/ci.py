@@ -140,8 +140,8 @@ class Container:
         return "main-"
 
     @property
-    def tag(self) -> str:
-        """Get the tag for this container."""
+    def raw_tag(self) -> str:
+        """Get the raw (without any prefixes) tag for this container."""
         parents = []
         parent = self.from_container
         while parent is not None:
@@ -153,8 +153,12 @@ class Container:
             parent_tags.extend(parent._tags)
         parent = self.from_container
 
-        tags = parent_tags + self._tags
-        tag = f"{'-'.join(tags)}-{self.raw_date}"
+        return "-".join(parent_tags + self._tags + [self.raw_date])
+
+    @property
+    def tag(self) -> str:
+        """Get the tag for this container."""
+        tag = self.raw_tag
         if self._pr_tag is not None:
             assert not self._main_tag
             assert not self._release_tag
@@ -605,7 +609,6 @@ def prepare_with_base(
     unreleased_summary = []
     for name in sorted(current_containers):
         container = current_containers[name]
-        tag = container.tag
         base_container = base_containers.get(name)
 
         # Release version of the container, for checking status
@@ -627,7 +630,8 @@ def prepare_with_base(
         if base_container is not None and base_container.date > container.date:
             raise ContainersException(container.name, "date moved back")
 
-        build = base_container is None or tag != base_container.tag
+        build = base_container is None or container.raw_tag != base_container.raw_tag
+
         if build and pr is not None:
             container.set_pr_tag(pr)
         else:
@@ -900,7 +904,7 @@ def delete_containers(
     missing_repos = []
     for container in current_containers.values():
         name = f"{STAGING_PREFIX}{container.repo}"
-        print(f"Checking {container.repo}...")
+        print(f"Checking {name}...")
 
         try:
             github_containers = github_get_containers(name, token)
@@ -910,6 +914,8 @@ def delete_containers(
             continue
 
         for github_container in github_containers:
+            if 'latest' in github_container.tags:
+                continue
             assert len(github_container.tags) < 2, "Should one or no tags"
 
             if condition(github_container):
