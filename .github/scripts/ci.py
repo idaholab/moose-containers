@@ -900,7 +900,7 @@ def delete_containers(
     missing_repos = []
     for container in current_containers.values():
         name = f"{STAGING_PREFIX}{container.repo}"
-        print(f"Checking {container.repo}...")
+        print(f"Checking {name}...")
 
         try:
             github_containers = github_get_containers(name, token)
