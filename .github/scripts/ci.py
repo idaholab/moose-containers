@@ -902,6 +902,7 @@ def delete_containers(
     current_containers, _ = load_current()
 
     missing_repos = []
+    num_deleted = 0
     for container in current_containers.values():
         name = f"{STAGING_PREFIX}{container.repo}"
         print(f"Checking {name}...")
@@ -927,7 +928,10 @@ def delete_containers(
                     print(f"  Would delete {context}")
                 else:
                     print(f"  Deleting {context}...")
-                github_delete_container(github_container, token)
+                    github_delete_container(github_container, token)
+                    num_deleted += 1
+
+    print(f"\nDeleted {num_deleted} image(s)")
 
     if missing_repos:
         print(
