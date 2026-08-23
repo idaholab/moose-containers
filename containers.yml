@@ -44,22 +44,22 @@ compiler-ubuntu24-clang:
   tags:
     - "clang{{ package("clang-ubuntu24") }}"
     - "gcc{{ package("gcc-ubuntu24-clang") }}"
-  date: "20260822"
+  date: "20260823"
 compiler-ubuntu24-gcc:
   from: base-ubuntu24
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260822"
+  date: "20260823"
 compiler-ubuntu24-gccmin:
   from: base-ubuntu24
   tags:
     - "gcc{{ package("gcc-min-ubuntu24") }}"
-  date: "20260822"
+  date: "20260823"
 compiler-ubuntu24-cuda-gcc:
   from: base-ubuntu24-cuda
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260822"
+  date: "20260823"
 
 # moose-mpi
 mpi-rocky8-cuda-gcc:
@@ -96,24 +96,24 @@ mpi-ubuntu24-cuda-gcc:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260822"
+  date: "20260823"
 mpi-ubuntu24-clang:
   from: compiler-ubuntu24-clang
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260822"
+  date: "20260823"
 mpi-ubuntu24-gcc:
   from: compiler-ubuntu24-gcc
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
   release: true
-  date: "20260822"
+  date: "20260823"
 mpi-ubuntu24-gccmin:
   from: compiler-ubuntu24-gccmin
   tags:
     - "mpich{{ package("mpich") }}"
   release: true
-  date: "20260822"
+  date: "20260823"
