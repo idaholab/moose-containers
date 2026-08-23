@@ -34,6 +34,7 @@ mkdir build
 cd build
 ../configure \
     --prefix="$VALGRIND_DIR" \
+    --enable-lto=yes \
     "${CONFIGURE_ARGS[@]}" | tee "${VALGRIND_DIR}/logs/configure.log"
 make -j "$BUILD_JOBS" 2>&1 | tee "${VALGRIND_DIR}/logs/build.log"
 make install 2>&1 | tee "${VALGRIND_DIR}/logs/install.log"
