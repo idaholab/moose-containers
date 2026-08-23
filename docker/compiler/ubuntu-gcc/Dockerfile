@@ -23,6 +23,8 @@ RUN test -n "$GCC_VERSION" && \
         gcc-${GCC_MAJOR_VERSION} \
         g++-${GCC_MAJOR_VERSION} \
         gfortran-${GCC_MAJOR_VERSION} \
+        binutils \
+        libc6-dev \
         make && \
     apt-get autoremove -y && \
     apt-get clean && \
@@ -46,7 +48,14 @@ RUN GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && 
 ARG VALGRIND_DIR=/opt/valgrind
 ARG VALGRIND_VERSION=3.27.1
 RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
-    export CC=${GCC_DIR}/bin/gcc && \
+    GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
+    export CC=/usr/bin/gcc-${GCC_MAJOR_VERSION} && \
+    export CXX=/usr/bin/g++-${GCC_MAJOR_VERSION} && \
+    export AR=/usr/bin/ar && \
+    export RANLIB=/usr/bin/ranlib && \
+    export NM=/usr/bin/nm && \
+    export LTO_AR=/usr/bin/gcc-ar-${GCC_MAJOR_VERSION} && \
+    export LTO_RANLIB=/usr/bin/gcc-ranlib-${GCC_MAJOR_VERSION} && \
     eval "/bin/bash /root/install_valgrind.bash \"$VALGRIND_VERSION\" \"$VALGRIND_DIR\""
 
 # Add to environment script
