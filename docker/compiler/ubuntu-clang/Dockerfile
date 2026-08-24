@@ -29,6 +29,8 @@ RUN test -n "$CLANG_VERSION" && \
         libstdc++-${GCC_MAJOR_VERSION}-dev \
         gnupg \
         lsb-release \
+        binutils \
+        libc6-dev \
         make \
         software-properties-common && \
     curl -L -O https://apt.llvm.org/llvm.sh && \
@@ -60,7 +62,14 @@ RUN "${GCC_DIR}/bin/gfortran" --version && \
 ARG VALGRIND_DIR=/opt/valgrind
 ARG VALGRIND_VERSION=3.27.1
 RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
-    export CC=${CLANG_DIR}/bin/clang && \
+    GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
+    export CC=/usr/bin/gcc-${GCC_MAJOR_VERSION} && \
+    export CXX=/usr/bin/g++-${GCC_MAJOR_VERSION} && \
+    export AR=/usr/bin/ar && \
+    export RANLIB=/usr/bin/ranlib && \
+    export NM=/usr/bin/nm && \
+    export LTO_AR=/usr/bin/gcc-ar-${GCC_MAJOR_VERSION} && \
+    export LTO_RANLIB=/usr/bin/gcc-ranlib-${GCC_MAJOR_VERSION} && \
     eval "/bin/bash /root/install_valgrind.bash \"$VALGRIND_VERSION\" \"$VALGRIND_DIR\""
 
 # Setup separate compiler environment
