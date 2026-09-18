@@ -6,9 +6,9 @@ ubuntu24: "24.04"
 # version defaults
 cuda: "13.3.1"
 mpich: "5.0.1"
-openmpi: "5.0.10"
+openmpi: "5.0.11"
 oneapi: "2026.1.1"
-oras: "1.3.3"
+oras: "1.3.4"
 
 # compiler versions
 clang-ubuntu24: "22.1.8"
