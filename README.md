@@ -6,7 +6,6 @@ This repository defines, builds, and publishes the base container images used by
 Each image provides a ready-to-use environment: an operating system, a compiler toolchain,
 and MPI. MOOSE builds on top of these images, so it never has to set up these
 dependencies itself. Every image is defined in this repository with exact, pinned versions.
-Images are rebuilt only when one of those versions changes.
 
 All images are published to the GitHub Container Registry (ghcr.io) under
 [`ghcr.io/idaholab/moose-containers`](https://github.com/orgs/idaholab/packages?repo_name=moose-containers).
@@ -15,29 +14,15 @@ All images are published to the GitHub Container Registry (ghcr.io) under
 
 Two files control everything that gets built:
 
-- **[`packages.yml`](packages.yml)** lists named software versions, such as operating
-  system releases, CUDA, GCC, Clang, MPICH, OpenMPI, and Intel oneAPI. Each entry has a
-  name (for example `gcc-ubuntu24`) and a version.
-- **[`containers.yml`](containers.yml)** lists every container that gets built. For each
-  container it gives the container it builds on (`from`), its Dockerfile (`dockerfile`)
-  and the arguments to build it with (`build-args`), the package versions that make up
-  its tag (`tags`), a `date`, and whether the image is published as a release
-  (`release`). It refers to versions by name from `packages.yml`, for example
-  `{{ package("gcc-ubuntu24") }}`, so one version can be shared by many containers.
+- **[`packages.yml`](packages.yml)** names every software version, such as the OS
+  releases, CUDA, GCC, Clang, MPICH, OpenMPI, and Intel oneAPI.
+  See [packages.yml](#packagesyml).
+- **[`containers.yml`](containers.yml)** lists every container: what it builds on, its
+  Dockerfile, and its tag. It refers to versions by name from `packages.yml`, so one
+  version can be shared by many containers. See [containers.yml](#containersyml).
 
-GitHub Actions reads both files, works out which containers have changed, and builds
-only those.
-
-The build workflow has one job per container, so each container waits only for its own
-parent. That workflow, [`build.yml`](.github/workflows/build.yml), is generated from
-[`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
-After adding, removing or re-parenting a container, regenerate it:
-
-```bash
-uv run moosecontainers workflows
-```
-
-The pull request build fails if it is out of date.
+GitHub Actions works out which containers have changed and builds only those; see
+[From pull request to release](#from-pull-request-to-release).
 
 ### Versioning
 
@@ -60,8 +45,90 @@ script does not trigger a build by itself. A container gets rebuilt when you:
   A parent's date is not part of its children's tags, so to rebuild the containers built
   on top of it as well, bump their dates too.
 
-Dates must be real dates (`YYYYMMDD`). They can't be in the future and can't move
-backward.
+## Updating a container
+
+Every change follows the same flow:
+
+1. Make the change (see below). If it doesn't change a version, bump the `date` of each
+   container that should be rebuilt; see [Versioning](#versioning).
+2. Check locally which containers would build and which packages changed:
+
+   ```bash
+   uv run moosecontainers prepare_push origin/main
+   ```
+
+3. Open a pull request. Check the [summary comment](#pull-requests-buildyml) to confirm
+   the right containers are being rebuilt, and wait for the builds to pass.
+4. Merge the pull request. The `main` images are built.
+5. Run the [Release](#release-releaseyml) workflow: a dry run first, then a real run.
+
+What to change for common updates:
+
+| Update | Change |
+| --- | --- |
+| A package version (GCC, MPICH, CUDA, ...) | The version in `packages.yml` |
+| A Dockerfile or helper script | The files under `docker/<layer>`, plus the `date` of the containers that use them and their children |
+| The Rocky Linux version | `rocky8`/`rocky9` in `packages.yml` **and** the pinned `FROM` line in `docker/base/rocky8` or `docker/base/rocky9`; the build fails if they don't match |
+| Valgrind | `VALGRIND_VERSION` in each compiler Dockerfile, plus the `date` of the compiler containers (and their children) |
+| A new container | An entry in [`containers.yml`](#containersyml), then `uv run moosecontainers workflows` to [regenerate `build.yml`](#ci-tooling) |
+| A new package | An entry in [`packages.yml`](#packagesyml), used through [`package()`](#templating) |
+
+After changing `packages.yml` or `containers.yml`, regenerate the
+[released images](#released-images) table with `uv run moosecontainers readme`. The pull
+request build fails if it is out of date.
+
+## Configuration
+
+Values must have exactly the type listed below, so versions and dates must be quoted.
+
+### packages.yml
+
+Maps a package name to its version:
+
+```yaml
+gcc-ubuntu24: "14.2.0"
+```
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `<name>` | string | The version, used in `containers.yml` through [`package()`](#templating) |
+
+### containers.yml
+
+Maps a container name to its definition. The image is published as `moose-<name>`, and
+the first part of the name is its [layer](#containers):
+
+```yaml
+compiler-ubuntu24-gcc:
+  from: base-ubuntu24
+  dockerfile: ubuntu-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-ubuntu24") }}"
+  tags:
+    - "gcc{{ package("gcc-ubuntu24") }}"
+  date: "20260918"
+```
+
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `tags` | list of strings | yes | Versions added to the [tag](#versioning), after the parents' tags |
+| `date` | string | yes | `YYYYMMDD`; not in the future, and never moving backward |
+| `dockerfile` | string | yes, for current containers | Directory under `docker/<layer>` that holds the `Dockerfile` |
+| `from` | string | no | Name of the container in this file to build on |
+| `build-args` | map of string to string | no | Build arguments; `BUILD_FROM` is added for you |
+| `release` | boolean | no (`false`) | Whether to publish the image in a [release](#release-releaseyml) |
+
+#### Templating
+
+`containers.yml` is rendered with [Jinja](https://jinja.palletsprojects.com) before it
+is loaded. These functions are available:
+
+| Function | Returns |
+| --- | --- |
+| `package("<name>")` | The version of `<name>` in `packages.yml` |
+
+Wrap each call in quotes so the result stays a string, e.g.
+`"gcc{{ package("gcc-ubuntu24") }}"`.
 
 ## Containers
 
@@ -111,13 +178,14 @@ flowchart LR
     b_u24c --> c_u24cg --> m_u24cg
 ```
 
-Every image is published under the name `moose-<name>`, for example `moose-mpi-rocky8-gcc`.
-Exact versions are in `packages.yml`.
+Every image is published as `moose-<name>`, for example `moose-mpi-rocky8-gcc`. Exact
+versions are in [`packages.yml`](packages.yml).
 
 ### Released images
 
 These are the release tags defined by the current `containers.yml`. A new tag is published
-once the Release workflow runs. This table is generated; don't edit it by hand.
+once the [Release](#release-releaseyml) workflow runs. This table is generated; don't edit
+it by hand.
 
 <!-- releases:start -->
 | container                                                                                                                                   | tag                                                             |
@@ -192,9 +260,8 @@ repositories in the registry, so test images never mix with released ones.
 
 ### Pull requests ([`build.yml`](.github/workflows/build.yml))
 
-When a pull request changes `packages.yml` or `containers.yml`, only the affected
-containers are built, in dependency order. Unchanged parents are reused from `main`.
-The workflow posts a comment on the pull request summarizing:
+Changed containers are built in dependency order; unchanged parents are reused from
+`main`. The workflow posts a comment on the pull request summarizing:
 
 - which containers will be built, with their old and new tags,
 - which package versions changed, and
@@ -219,9 +286,9 @@ By default it runs as a **dry run**, which only reports what would be released. 
 runs for real (this requires approval through the `release` environment), it:
 
 1. merges `main` into the `release` branch, and
-2. for each container marked `release: true` that hasn't been released at its current tag,
-   copies the existing `main` image to the release location. The image is promoted as it
-   is, not rebuilt.
+2. for each container marked [`release: true`](#containersyml) that hasn't been released
+   at its current tag, copies the existing `main` image to the release location. The
+   image is promoted as it is, not rebuilt.
 
 Only the images MOOSE actually uses are marked for release: `moose-base-rocky8` and every
 `moose-mpi-*` image. The base and compiler images in between exist to build those.
@@ -250,11 +317,8 @@ uv run pytest
 
 The tests mock every request to GitHub and require 100% coverage.
 
-## Updating a container
-
-1. Change the version in `packages.yml` and/or bump the `date` of the affected containers
-   in `containers.yml` (and of any containers built on them that should be rebuilt too).
-2. Open a pull request. Check the summary comment to confirm the right containers are
-   being rebuilt, and wait for the builds to pass.
-3. Merge the pull request. The `main` images are built.
-4. Run the **Release** workflow. Do a dry run first, then a real run to publish.
+The build workflow, [`build.yml`](.github/workflows/build.yml), has one job per
+container, so each container waits only for its own parent. It is generated from
+[`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
+After adding, removing or re-parenting a container, regenerate it with
+`uv run moosecontainers workflows`. The pull request build fails if it is out of date.

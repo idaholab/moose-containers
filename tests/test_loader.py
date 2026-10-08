@@ -65,10 +65,129 @@ def test_load_containers_unknown_package():
 
 
 def test_load_containers_unknown_from():
-    """An unknown from container raises."""
+    """An unknown from container raises with its location."""
     template = 'a:\n  from: b\n  tags: []\n  date: "20250101"\n'
-    with pytest.raises(ContainersException, match="from container b not"):
+    with pytest.raises(loader.ConfigError) as e:
         loader.load_containers(template, {})
+    assert str(e.value) == "containers.yml:2:9: a.from: container b not found"
+
+
+@pytest.mark.parametrize(
+    "contents, message",
+    [
+        ("", "containers.yml: Input should be a valid dictionary"),
+        (
+            "a: 1\n",
+            "containers.yml:1:4: a: Input should be a valid dictionary"
+            " or instance of ContainerConfig",
+        ),
+        (
+            'a:\n  tags: ["x", 1]\n  date: "20250101"\n',
+            "containers.yml:2:15: a.tags.1: Input should be a valid string",
+        ),
+        (
+            'a:\n  tags: []\n  date: "20250101"\n  build-args: {1: "x"}\n',
+            "containers.yml:4:16: a.build-args.1: Input should be a valid"
+            " string",
+        ),
+        (
+            'a:\n  tags: []\n  date: "20250101"\n  release: "yes"\n',
+            "containers.yml:4:12: a.release: Input should be a valid boolean",
+        ),
+        (
+            'a:\n  tags: []\n  date: "20250101"\n  foo: 1\n',
+            "containers.yml:4:3: a.foo: Extra inputs are not permitted",
+        ),
+        (
+            "a:\n  tags: []\n",
+            "containers.yml:2:3: a.date: Field required",
+        ),
+        (
+            'a:\n  tags: []\n  date: "2025"\n',
+            "containers.yml:3:9: a.date: Value error, '2025' is not a valid"
+            " YYYYMMDD date",
+        ),
+        (
+            'a:\n  tags: []\n  date: "99990101"\n',
+            "containers.yml:3:9: a.date: Value error, '99990101' is from the"
+            " future",
+        ),
+        (
+            "a:\n  tags: []\n  date: 20250101\n",
+            "containers.yml:3:9: a.date: Input should be a valid string",
+        ),
+    ],
+)
+def test_load_containers_invalid(contents, message):
+    """Invalid containers raise with their location."""
+    with pytest.raises(loader.ConfigError) as e:
+        loader.load_containers(contents, {})
+    assert str(e.value) == message
+
+
+def test_load_containers_invalid_multiple():
+    """Each error is reported on its own line."""
+    template = 'a:\n  tags: [1]\n  date: "20250101"\n  foo: 1\n'
+    with pytest.raises(loader.ConfigError) as e:
+        loader.load_containers(template, {}, "foo.yml")
+    assert str(e.value).splitlines() == [
+        "foo.yml:2:10: a.tags.0: Input should be a valid string",
+        "foo.yml:4:3: a.foo: Extra inputs are not permitted",
+    ]
+
+
+def test_load_containers_invalid_yaml():
+    """Invalid YAML raises with its location."""
+    with pytest.raises(loader.ConfigError, match='"containers.yml", line 1'):
+        loader.load_containers("a: [1\n", {})
+
+
+def test_load_packages():
+    """Load packages."""
+    assert loader.load_packages('a: "1"\nb: "2"\n', "p.yml") == {
+        "a": "1",
+        "b": "2",
+    }
+
+
+def test_load_packages_invalid():
+    """Packages that aren't strings raise with their location."""
+    with pytest.raises(loader.ConfigError) as e:
+        loader.load_packages('a: "1"\nb: 1.0\n', "p.yml")
+    assert str(e.value) == "p.yml:2:4: b: Input should be a valid string"
+
+
+def test_find_node_key():
+    """Key errors locate the key, not the value."""
+    _, locate = loader.load_yaml('a: "1"\n', "p.yml", loader.PackagesConfig)
+    assert locate(("a", "[key]")) == "p.yml:1:1"
+    assert locate(("a",)) == "p.yml:1:4"
+    assert locate(("b",)) == "p.yml:1:1"
+    assert locate(("a", "b")) == "p.yml:1:4"
+
+
+def test_find_node_duplicate_key():
+    """Duplicate keys locate the last one, which is the one used."""
+    _, locate = loader.load_yaml(
+        'a: "1"\na: "2"\n', "p.yml", loader.PackagesConfig
+    )
+    assert locate(("a",)) == "p.yml:2:4"
+
+
+def test_load_current_invalid_packages(repo):
+    """Invalid current packages raise with their location."""
+    repo.write(config.PACKAGES_FILE, "os: 1.0\n")
+    with pytest.raises(loader.ConfigError, match="packages.yml:1:5: os:"):
+        loader.load_current()
+
+
+def test_load_previous_invalid(repo):
+    """Errors in a previous reference include the reference."""
+    repo.write_containers('a:\n  tags: []\n  date: "2025"\n')
+    sha = repo.commit()
+    with pytest.raises(loader.ConfigError) as e:
+        loader.load_previous(sha)
+    assert str(e.value).startswith(f"{sha}:containers.yml:3:9: a.date:")
 
 
 def test_load_current(repo):

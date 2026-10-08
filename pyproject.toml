@@ -9,6 +9,7 @@ dependencies = [
     "tabulate==0.10.0",
     "requests==2.34.2",
     "ruff==0.16.10",
+    "pydantic==2.14.0",
 ]
 
 [project.scripts]
