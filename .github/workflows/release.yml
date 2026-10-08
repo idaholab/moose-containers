@@ -21,24 +21,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      from-base-rocky8: ${{ steps.prepare.outputs.from-base-rocky8 }}
-      from-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.from-mpi-rocky8-cuda-gcc }}
-      from-mpi-rocky8-gcc: ${{ steps.prepare.outputs.from-mpi-rocky8-gcc }}
-      from-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.from-mpi-rocky8-oneapi }}
-      from-mpi-rocky9-gcc: ${{ steps.prepare.outputs.from-mpi-rocky9-gcc }}
-      from-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.from-mpi-ubuntu24-cuda-gcc }}
-      from-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.from-mpi-ubuntu24-clang }}
-      from-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.from-mpi-ubuntu24-gcc }}
-      from-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.from-mpi-ubuntu24-gccmin }}
-      to-base-rocky8: ${{ steps.prepare.outputs.to-base-rocky8 }}
-      to-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.to-mpi-rocky8-cuda-gcc }}
-      to-mpi-rocky8-gcc: ${{ steps.prepare.outputs.to-mpi-rocky8-gcc }}
-      to-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.to-mpi-rocky8-oneapi }}
-      to-mpi-rocky9-gcc: ${{ steps.prepare.outputs.to-mpi-rocky9-gcc }}
-      to-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.to-mpi-ubuntu24-cuda-gcc }}
-      to-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.to-mpi-ubuntu24-clang }}
-      to-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.to-mpi-ubuntu24-gcc }}
-      to-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.to-mpi-ubuntu24-gccmin }}
+      releases: ${{ steps.prepare.outputs.releases }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -80,16 +63,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  base-rocky8:
-    name: "base-rocky8"
+  release:
+    name: release-${{ matrix.name }}
     needs: [prepare, merge-release]
+    if: >-
+      needs.merge-release.result == 'success'
+      && needs.prepare.outputs.releases != '[]'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-base-rocky8
+    strategy:
+      # Release the containers that can be, even if one fails
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.releases) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -97,181 +85,12 @@ jobs:
         uses: ./.github/actions/release
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-base-rocky8 }}
-          to-uri: ${{ needs.prepare.outputs.to-base-rocky8 }}
-
-  mpi-rocky8-cuda-gcc:
-    name: "mpi-rocky8-cuda-gcc"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-rocky8-cuda-gcc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-rocky8-cuda-gcc }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-rocky8-cuda-gcc }}
-
-  mpi-rocky8-gcc:
-    name: "mpi-rocky8-gcc"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-rocky8-gcc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-rocky8-gcc }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-rocky8-gcc }}
-
-  mpi-rocky8-oneapi:
-    name: "mpi-rocky8-oneapi"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-rocky8-oneapi
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-rocky8-oneapi }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-rocky8-oneapi }}
-
-  mpi-rocky9-gcc:
-    name: "mpi-rocky9-gcc"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-rocky9-gcc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-rocky9-gcc }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-rocky9-gcc }}
-
-  mpi-ubuntu24-cuda-gcc:
-    name: "mpi-ubuntu24-cuda-gcc"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-ubuntu24-cuda-gcc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-ubuntu24-cuda-gcc }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-ubuntu24-cuda-gcc }}
-
-  mpi-ubuntu24-clang:
-    name: "mpi-ubuntu24-clang"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-ubuntu24-clang
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-ubuntu24-clang }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-ubuntu24-clang }}
-
-  mpi-ubuntu24-gcc:
-    name: "mpi-ubuntu24-gcc"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-ubuntu24-gcc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-ubuntu24-gcc }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-ubuntu24-gcc }}
-
-  mpi-ubuntu24-gccmin:
-    name: "mpi-ubuntu24-gccmin"
-    needs: [prepare, merge-release]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    if: >-
-      needs.merge-release.result == 'success'
-      && needs.prepare.outputs.to-mpi-ubuntu24-gccmin
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: ./.github/actions/release
-        with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          from-uri: ${{ needs.prepare.outputs.from-mpi-ubuntu24-gccmin }}
-          to-uri: ${{ needs.prepare.outputs.to-mpi-ubuntu24-gccmin }}
+          from-uri: ${{ matrix.from }}
+          to-uri: ${{ matrix.to }}
 
   finalize:
     name: "finalize"
-    needs:
-      - base-rocky8
-      - mpi-rocky8-cuda-gcc
-      - mpi-rocky8-gcc
-      - mpi-rocky8-oneapi
-      - mpi-rocky9-gcc
-      - mpi-ubuntu24-cuda-gcc
-      - mpi-ubuntu24-clang
-      - mpi-ubuntu24-gcc
-      - mpi-ubuntu24-gccmin
+    needs: [prepare, merge-release, release]
     # Always run, so that this required check fails rather than being
     # skipped (which GitHub reports as success) when a build fails
     if: ${{ !cancelled() }}

@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -840,8 +841,7 @@ def action_prepare_release(args: argparse.Namespace):
     # Whether or not we're missing containers for a release
     missing_containers = False
 
-    release_from = {}
-    release_to = {}
+    releases = []
     release_summary = []
     for name in sorted(containers):
         container = containers[name]
@@ -855,11 +855,8 @@ def action_prepare_release(args: argparse.Namespace):
         main_container.set_main_tag()
         container.set_release_tag()
 
-        release_from[name] = main_container.uri
-
         # Skip containers already released
         if container.exists(ghcr_token):
-            release_to[name] = ""
             continue
 
         # Check for existance of main container
@@ -869,7 +866,13 @@ def action_prepare_release(args: argparse.Namespace):
             )
             missing_containers = True
 
-        release_to[name] = container.uri
+        releases.append(
+            {
+                "name": name,
+                "from": main_container.uri,
+                "to": container.uri,
+            }
+        )
         release_summary.append(
             (
                 f"[`{name}`]({container.url})",
@@ -889,10 +892,8 @@ def action_prepare_release(args: argparse.Namespace):
         "No containers to release",
     )
 
-    # Do github output
-    result = {f"from-{k}": v for k, v in release_from.items()}
-    result.update({f"to-{k}": v for k, v in release_to.items()})
-    write_outputs(result)
+    # Do github output; the matrix for the release job
+    write_outputs({"releases": json.dumps(releases)})
 
 
 def post_action(
