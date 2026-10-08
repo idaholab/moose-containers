@@ -720,11 +720,6 @@ def prepare_with_base(
             build = True
 
         if build:
-            if (
-                base_container is not None
-                and base_container.date > container.date
-            ):
-                raise ContainersException(container.name, "date moved back")
             changed[name] = True
             summary_name = f"[`{container.name}`]({container.url})"
             build_summary.append(
@@ -878,7 +873,6 @@ def action_prepare_release(args: argparse.Namespace):
             )
             missing_containers = True
 
-        release_from[name] = main_container.uri
         release_to[name] = container.uri
         release_summary.append(
             (
@@ -939,7 +933,7 @@ def post_action(
     release_containers = {}
     if release:
         release_containers = deepcopy(containers)
-        [v.set_release_tag() for v in pr_containers.values()]
+        [v.set_release_tag() for v in release_containers.values()]
 
     def check_exists(name: str, containers: dict[str, Container]) -> bool:
         other_container = containers.get(name)
