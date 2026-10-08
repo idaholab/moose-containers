@@ -1,5 +1,6 @@
 """Tests for moosecontainers.config."""
 
+import importlib
 import os
 
 from moosecontainers import config
@@ -24,3 +25,18 @@ def test_workflows_exist():
     for template, workflow in config.WORKFLOWS.items():
         assert os.path.isfile(os.path.join(config.REPO_ROOT, template))
         assert os.path.isfile(os.path.join(config.REPO_ROOT, workflow))
+
+
+def test_repo_root_override(monkeypatch, tmp_path):
+    """The repo root can be set from the environment."""
+    default = config.REPO_ROOT
+    monkeypatch.setenv("MOOSECONTAINERS_REPO_ROOT", str(tmp_path))
+    try:
+        root = importlib.reload(config).REPO_ROOT
+        assert root == str(tmp_path)
+        monkeypatch.setenv("MOOSECONTAINERS_REPO_ROOT", "")
+        root = importlib.reload(config).REPO_ROOT
+        assert root == default
+    finally:
+        monkeypatch.delenv("MOOSECONTAINERS_REPO_ROOT")
+        importlib.reload(config)

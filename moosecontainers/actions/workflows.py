@@ -23,7 +23,7 @@ def add_parser(subparsers: argparse._SubParsersAction):
 def render(template_path: str) -> str:
     """Render a workflow template with the current containers.
 
-    The template uses [[ ]] and [% %] instead of jinja's default delimiters,
+    The template uses [[ ]], [% %] and [# #] instead of jinja's defaults,
     so that GitHub's own ${{ }} expressions can be written as is.
     """
     containers, _ = load_current()
@@ -61,6 +61,8 @@ def render(template_path: str) -> str:
         variable_end_string="]]",
         block_start_string="[%",
         block_end_string="%]",
+        comment_start_string="[#",
+        comment_end_string="#]",
         trim_blocks=True,
         lstrip_blocks=True,
         keep_trailing_newline=True,

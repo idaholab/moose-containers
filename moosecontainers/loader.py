@@ -4,9 +4,10 @@ import datetime
 import os
 import subprocess
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 import jinja2
+import jinja2.sandbox
 import pydantic
 import yaml
 
@@ -18,12 +19,34 @@ class ConfigError(Exception):
     """Exception for an invalid configuration file."""
 
 
+# The configuration can come from an untrusted pull request (from a fork), and
+# its values end up in image tags, paths and shell commands; limit them to
+# characters that are safe in each
+Name = Annotated[
+    str, pydantic.StringConstraints(pattern=r"^[a-z0-9][a-z0-9.-]*$")
+]
+"""A container name or a Dockerfile directory."""
+
+Tag = Annotated[str, pydantic.StringConstraints(pattern=r"^[A-Za-z0-9_.-]+$")]
+"""A part of an image tag."""
+
+BuildArgName = Annotated[
+    str, pydantic.StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+]
+"""The name of a Docker build argument."""
+
+BuildArgValue = Annotated[
+    str, pydantic.StringConstraints(pattern=r"^[A-Za-z0-9_.:/+@=-]*$")
+]
+"""The value of a Docker build argument."""
+
+
 class ContainerConfig(pydantic.BaseModel):
     """The configuration for a single container in containers.yml."""
 
     model_config = pydantic.ConfigDict(strict=True, extra="forbid", frozen=True)
 
-    tags: list[str]
+    tags: list[Tag]
     """Tags for the container."""
 
     date: str
@@ -32,15 +55,15 @@ class ContainerConfig(pydantic.BaseModel):
     release: bool = False
     """Whether or not this container should be released."""
 
-    dockerfile: str | None = None
+    dockerfile: Name | None = None
     """The Dockerfile directory, relative to the layer's context."""
 
-    build_args: dict[str, str] = pydantic.Field(
+    build_args: dict[BuildArgName, BuildArgValue] = pydantic.Field(
         default_factory=dict, alias="build-args"
     )
     """Extra build arguments for the Dockerfile."""
 
-    from_: str | None = pydantic.Field(default=None, alias="from")
+    from_: Name | None = pydantic.Field(default=None, alias="from")
     """The name of the container this container is built from, if any."""
 
     @pydantic.field_validator("date")
@@ -56,10 +79,10 @@ class ContainerConfig(pydantic.BaseModel):
         return value
 
 
-ContainersConfig = pydantic.RootModel[dict[str, ContainerConfig]]
+ContainersConfig = pydantic.RootModel[dict[Name, ContainerConfig]]
 """The configuration in containers.yml."""
 
-PackagesConfig = pydantic.RootModel[dict[str, str]]
+PackagesConfig = pydantic.RootModel[dict[Name, Tag]]
 """The configuration in packages.yml."""
 
 
@@ -154,11 +177,13 @@ def load_containers(
     filename: str = config.CONTAINERS_FILE,
 ) -> dict[str, Container]:
     """Render a containers.yml template with the given packages input."""
+    # Sandboxed, as the template can come from an untrusted pull request
+    env = jinja2.sandbox.SandboxedEnvironment()
     if isinstance(template, jinja2.FileSystemLoader):
-        env = jinja2.Environment(loader=template)
+        env.loader = template
         template = env.get_template(config.CONTAINERS_FILE)
     else:
-        template = jinja2.Template(template)
+        template = env.from_string(template)
 
     # Helper for package("") function in jinja
     def get_package(name: str):

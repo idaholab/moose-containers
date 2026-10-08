@@ -116,13 +116,45 @@ def test_load_containers_unknown_from():
             "a:\n  tags: []\n  date: 20250101\n",
             "containers.yml:3:9: a.date: Input should be a valid string",
         ),
+        (
+            'a/b:\n  tags: []\n  date: "20250101"\n',
+            "containers.yml:1:1: a/b: String should match pattern",
+        ),
+        (
+            'a:\n  tags: ["x y"]\n  date: "20250101"\n',
+            "containers.yml:2:10: a.tags.0: String should match pattern",
+        ),
+        (
+            'a:\n  dockerfile: ../b\n  tags: []\n  date: "20250101"\n',
+            "containers.yml:2:15: a.dockerfile: String should match pattern",
+        ),
+        (
+            'a:\n  tags: []\n  date: "20250101"\n  build-args: {"A B": "x"}\n',
+            "containers.yml:4:16: a.build-args.A B: String should match"
+            " pattern",
+        ),
+        (
+            'a:\n  tags: []\n  date: "20250101"\n  build-args: {A: "$(x)"}\n',
+            "containers.yml:4:19: a.build-args.A: String should match pattern",
+        ),
+        (
+            'a:\n  from: "-b"\n  tags: []\n  date: "20250101"\n',
+            "containers.yml:2:9: a.from: String should match pattern",
+        ),
     ],
 )
 def test_load_containers_invalid(contents, message):
     """Invalid containers raise with their location."""
     with pytest.raises(loader.ConfigError) as e:
         loader.load_containers(contents, {})
-    assert str(e.value) == message
+    assert str(e.value).startswith(message)
+
+
+def test_load_containers_sandboxed():
+    """The template can't reach unsafe attributes."""
+    template = 'a: "{{ package.__globals__.keys() }}"'
+    with pytest.raises(jinja2.exceptions.SecurityError):
+        loader.load_containers(template, {})
 
 
 def test_load_containers_invalid_multiple():
@@ -148,6 +180,13 @@ def test_load_packages():
         "a": "1",
         "b": "2",
     }
+
+
+@pytest.mark.parametrize("contents", ['a/b: "1"\n', 'a: "1 2"\n'])
+def test_load_packages_unsafe(contents):
+    """Package names and values are limited to safe characters."""
+    with pytest.raises(loader.ConfigError, match="String should match"):
+        loader.load_packages(contents, "p.yml")
 
 
 def test_load_packages_invalid():

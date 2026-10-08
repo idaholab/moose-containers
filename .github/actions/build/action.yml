@@ -9,6 +9,10 @@ inputs:
     description: Extra build args to pass
     required: false
     default: ""
+  root:
+    description: The checkout that context and file are relative to
+    required: false
+    default: "."
   context:
     description: Folder to use for Docker context
     required: true
@@ -34,7 +38,7 @@ runs:
 
         echo "::group::Determine cache URI"
         cache_uri=
-        if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+        if [ "$GITHUB_EVENT_NAME" != "push" ]; then
           cache_uri="${uri_prefix}:pr${{ github.event.pull_request.number }}-cache"
         fi
         echo "cache_uri=${cache_uri}"
@@ -96,8 +100,8 @@ runs:
     - name: Build and push
       uses: docker/build-push-action@v7
       with:
-        context: ./${{ inputs.context }}
-        file: ${{ inputs.file }}
+        context: ${{ inputs.root }}/${{ inputs.context }}
+        file: ${{ inputs.root }}/${{ inputs.file }}
         push: true
         tags: ${{ steps.prepare.outputs.tags }}
         cache-from: ${{ steps.prepare.outputs.cache_from }}

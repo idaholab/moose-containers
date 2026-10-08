@@ -4,22 +4,94 @@
 #
 # Don't edit this file by hand; edit the template or containers.yml instead.
 
+[% set fork = "github.event.pull_request.head.repo.full_name != github.repository" %]
+[% set lint_run = "github.event_name != 'pull_request_target'" %]
+[% set build_run = "(github.event_name == 'push' || (github.event_name == 'pull_request_target') == (" ~ fork ~ "))" %]
+[#
+  The build jobs can only start when ruff and pytest pass in the same run,
+  or for a fork, when a maintainer approved the run
+#]
+[% set ready = "(github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')" %]
+[#
+  A skipped job passes a required check, so the required jobs (prepare and
+  finalize) take another name in the run that skips them
+#]
+[% macro required_name(name) %]${{ [[ build_run ]] && '[[ name ]]' || '[[ name ]] (not used)' }}[% endmacro %]
+[% set uv_cache = "${{ github.event_name != 'pull_request_target' }}" %]
+[% set pr_root = "${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}" %]
+[% macro checkout_pr(fetch_depth=1) %]
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: [[ fetch_depth ]]
+      - name: Check pull request
+        # A symlink could point the build at files outside of pr/, such as
+        # the registry login
+        if: github.event_name == 'pull_request_target'
+        shell: bash
+        run: |
+          links=$(find pr -path pr/.git -prune -o -type l -print)
+          if [ -n "$links" ]; then
+            echo "::error::Pull requests from forks can't contain symlinks:"
+            echo "$links"
+            exit 1
+          fi
+[%- endmacro %]
+# Pull requests from this repository work as pushes do, on pull_request.
+#
+# Pull requests from forks get a read only token on pull_request, so that run
+# only lints and tests. Their images are built on pull_request_target, which
+# can push images and comment, but only once a maintainer approves the run in
+# the fork-pr environment. That run uses the base branch's tools, workflow and
+# build action; the pull request is checked out into pr/ only as data: its
+# containers.yml, packages.yml and Docker contexts. None of its code runs with
+# a write token, or can write to the cache that main uses.
+#
+# Both pull request events fire for every pull request; each job checks which
+# run it is in, and is skipped in the other run.
+
 name: Build
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, labeled]
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Keyed on the event, so that the run for one pull request event doesn't
+  # cancel the run for the other
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
+  fork-pr:
+    name: fork-pr
+    # Waits for a maintainer to approve building a fork's pull request
+    if: github.event_name == 'pull_request_target' && [[ build_run ]]
+    environment: fork-pr
+    runs-on: ubuntu-slim
+    permissions: {}
+    steps:
+      - name: Approved
+        shell: bash
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
+
   ruff:
     name: ruff
+    if: [[ lint_run ]]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -39,6 +111,7 @@ jobs:
 
   pytest:
     name: pytest
+    if: [[ lint_run ]]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -53,8 +126,12 @@ jobs:
 
   delete-images:
     name: delete-images
-    needs: [ruff, pytest]
-    if: github.event_name == 'pull_request'
+    needs: [fork-pr, ruff, pytest]
+    if: >-
+      always()
+      && github.event_name != 'push'
+      && [[ build_run ]]
+      && [[ ready ]]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -62,12 +139,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+[[ checkout_pr() ]]
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: [[ uv_cache ]]
       - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
+          MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
         run: |
           uv run --frozen moosecontainers \
             delete_pr \
@@ -78,10 +159,13 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    needs: [ruff, pytest]
-    if: >
-      github.event_name == 'pull_request' &&
-      contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
+    needs: [fork-pr, ruff, pytest]
+    if: >-
+      always()
+      && github.event_name != 'push'
+      && [[ build_run ]]
+      && [[ ready ]]
+      && contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -89,12 +173,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+[[ checkout_pr() ]]
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: [[ uv_cache ]]
       - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
+          MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
         run: |
           uv run --frozen moosecontainers \
             delete_pr \
@@ -106,6 +194,7 @@ jobs:
   generated:
     name: generated
     needs: [ruff, pytest]
+    if: [[ lint_run ]]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -124,12 +213,12 @@ jobs:
         run: uv run --frozen moosecontainers workflows --check
 
   prepare:
-    name: prepare
-    needs: [ruff, pytest, delete-images, delete-cache]
+    name: [[ required_name("prepare") ]]
+    needs: [fork-pr, ruff, pytest, delete-images, delete-cache]
     if: >-
       always()
-      && needs.ruff.result == 'success'
-      && needs.pytest.result == 'success'
+      && [[ build_run ]]
+      && [[ ready ]]
       && needs.delete-images.result != 'failure'
       && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
@@ -144,15 +233,20 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+[[ checkout_pr(0) ]]
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: [[ uv_cache ]]
       - name: Prepare
         id: prepare
         shell: bash
+        env:
+          MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
         run: |
           prepare_cmd=("uv" "run" "--frozen" "moosecontainers")
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
             "${prepare_cmd[@]}" \
               prepare_pr \
               "${{ github.event.pull_request.number }}" \
@@ -183,17 +277,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+[[ checkout_pr() ]]
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
           context: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].context }}
           file: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].file }}
           uri: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].uri }}
           build-args: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].build_args }}
 [% endfor %]
   finalize:
-    name: "finalize"
+    name: [[ required_name("finalize") ]]
     needs:
       - prepare
 [% for name in leaves %]
@@ -201,7 +299,7 @@ jobs:
 [% endfor %]
     # Always run, so that this required check fails rather than being
     # skipped (which GitHub reports as success) when a build fails
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && [[ build_run ]] }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -220,15 +318,18 @@ jobs:
           exit 1
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+[[ checkout_pr() ]]
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: [[ uv_cache ]]
       - name: Check
         shell: bash
+        env:
+          MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
         run: |
           cmd_args=()
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
             cmd_args+=("post_pr" "${{ github.event.pull_request.number }}")
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             cmd_args+=("post_push")
