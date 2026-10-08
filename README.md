@@ -40,58 +40,6 @@ uv run moosecontainers workflows
 
 The pull request build fails if it is out of date.
 
-### File format
-
-Values must have exactly the type listed below, so versions and dates must be quoted.
-
-#### packages.yml
-
-Maps a package name to its version:
-
-```yaml
-gcc-ubuntu24: "14.2.0"
-```
-
-| Key | Type | Description |
-| --- | --- | --- |
-| `<name>` | string | The version, used in `containers.yml` as `{{ package("<name>") }}` |
-
-#### containers.yml
-
-Maps a container name to its definition. The image is published as
-`moose-<name>`, and the first part of the name is its layer (`base`, `compiler` or `mpi`):
-
-```yaml
-compiler-ubuntu24-gcc:
-  from: base-ubuntu24
-  dockerfile: ubuntu-gcc
-  build-args:
-    GCC_VERSION: "{{ package("gcc-ubuntu24") }}"
-  tags:
-    - "gcc{{ package("gcc-ubuntu24") }}"
-  date: "20260918"
-```
-
-| Key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `tags` | list of strings | yes | Versions added to the tag, after the parents' tags |
-| `date` | string | yes | `YYYYMMDD`; not in the future, and never moving backward |
-| `dockerfile` | string | yes, for current containers | Directory under `docker/<layer>` that holds the `Dockerfile` |
-| `from` | string | no | Name of the container in this file to build on |
-| `build-args` | map of string to string | no | Build arguments; `BUILD_FROM` is added for you |
-| `release` | boolean | no (`false`) | Whether to publish the image as a release |
-
-##### Templating
-
-`containers.yml` is rendered with [Jinja](https://jinja.palletsprojects.com) before it
-is loaded. These functions are available:
-
-| Function | Returns |
-| --- | --- |
-| `package("<name>")` | The version of `<name>` in `packages.yml` |
-
-Wrap each call in quotes so the result stays a string, e.g. `"gcc{{ package("gcc-ubuntu24") }}"`.
-
 ### Versioning
 
 Each container's tag is made from its parents' versions, its own versions, and its date.
@@ -148,6 +96,58 @@ What to change for common updates:
 
 After changing `packages.yml` or `containers.yml`, regenerate the released images table
 with `uv run moosecontainers readme`. The pull request build fails if it is out of date.
+
+## File format
+
+Values must have exactly the type listed below, so versions and dates must be quoted.
+
+### packages.yml
+
+Maps a package name to its version:
+
+```yaml
+gcc-ubuntu24: "14.2.0"
+```
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `<name>` | string | The version, used in `containers.yml` as `{{ package("<name>") }}` |
+
+### containers.yml
+
+Maps a container name to its definition. The image is published as
+`moose-<name>`, and the first part of the name is its layer (`base`, `compiler` or `mpi`):
+
+```yaml
+compiler-ubuntu24-gcc:
+  from: base-ubuntu24
+  dockerfile: ubuntu-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-ubuntu24") }}"
+  tags:
+    - "gcc{{ package("gcc-ubuntu24") }}"
+  date: "20260918"
+```
+
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `tags` | list of strings | yes | Versions added to the tag, after the parents' tags |
+| `date` | string | yes | `YYYYMMDD`; not in the future, and never moving backward |
+| `dockerfile` | string | yes, for current containers | Directory under `docker/<layer>` that holds the `Dockerfile` |
+| `from` | string | no | Name of the container in this file to build on |
+| `build-args` | map of string to string | no | Build arguments; `BUILD_FROM` is added for you |
+| `release` | boolean | no (`false`) | Whether to publish the image as a release |
+
+#### Templating
+
+`containers.yml` is rendered with [Jinja](https://jinja.palletsprojects.com) before it
+is loaded. These functions are available:
+
+| Function | Returns |
+| --- | --- |
+| `package("<name>")` | The version of `<name>` in `packages.yml` |
+
+Wrap each call in quotes so the result stays a string, e.g. `"gcc{{ package("gcc-ubuntu24") }}"`.
 
 ## Containers
 
