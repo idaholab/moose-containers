@@ -19,13 +19,25 @@ Two files control everything that gets built:
   system releases, CUDA, GCC, Clang, MPICH, OpenMPI, and Intel oneAPI. Each entry has a
   name (for example `gcc-ubuntu24`) and a version.
 - **[`containers.yml`](containers.yml)** lists every container that gets built. For each
-  container it gives the container it builds on (`from`), the package versions that make
-  up its tag, a `date`, and whether the image is published as a release (`release`). It
-  refers to versions by name from `packages.yml`, for example `{{ package("gcc-ubuntu24") }}`,
-  so one version can be shared by many containers.
+  container it gives the container it builds on (`from`), its Dockerfile (`dockerfile`)
+  and the arguments to build it with (`build-args`), the package versions that make up
+  its tag (`tags`), a `date`, and whether the image is published as a release
+  (`release`). It refers to versions by name from `packages.yml`, for example
+  `{{ package("gcc-ubuntu24") }}`, so one version can be shared by many containers.
 
 GitHub Actions reads both files, works out which containers have changed, and builds
 only those.
+
+The build workflow has one job per container, so each container waits only for its own
+parent. That workflow, [`build.yml`](.github/workflows/build.yml), is generated from
+[`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
+After adding, removing or re-parenting a container, regenerate it:
+
+```bash
+uv run python .github/scripts/ci.py workflows
+```
+
+The pull request build fails if it is out of date.
 
 ### Versioning
 

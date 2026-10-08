@@ -58,6 +58,11 @@ README_START = "<!-- releases:start -->"
 README_END = "<!-- releases:end -->"
 """Marker for the end of the generated release table in the README."""
 
+WORKFLOWS = {
+    ".github/templates/build.yml.j2": ".github/workflows/build.yml",
+}
+"""Generated workflows (template -> output), relative to the repo root."""
+
 
 class ContainersException(Exception):
     """Exception for an error in the containers file."""
@@ -77,7 +82,13 @@ class Container:
     """Data class for a single container to be built."""
 
     def __init__(
-        self, name: str, tags: list[str], date: str, release: bool = False
+        self,
+        name: str,
+        tags: list[str],
+        date: str,
+        release: bool = False,
+        dockerfile: str | None = None,
+        build_args: dict[str, str] | None = None,
     ):
         """Initialize the container."""
         assert isinstance(name, str)
@@ -85,6 +96,13 @@ class Container:
         assert all(isinstance(v, str) for v in tags)
         assert isinstance(date, str)
         assert isinstance(release, bool)
+        assert dockerfile is None or isinstance(dockerfile, str)
+        build_args = build_args or {}
+        if not isinstance(build_args, dict) or not all(
+            isinstance(k, str) and isinstance(v, str)
+            for k, v in build_args.items()
+        ):
+            raise ContainersException(name, "build-args must map str to str")
 
         self._name: str = name
         """Name of the container."""
@@ -120,6 +138,12 @@ class Container:
         self._release_tag: bool = False
         """Whether or not this container has a release tag (for the URI)."""
 
+        self._dockerfile: str | None = dockerfile
+        """The Dockerfile directory, relative to the layer's context."""
+
+        self._build_args: dict[str, str] = build_args
+        """Extra build arguments for the Dockerfile."""
+
     @property
     def name(self) -> str:
         """The name of the container."""
@@ -139,6 +163,32 @@ class Container:
     def release(self) -> bool:
         """Whether or not this container should be released."""
         return self._release
+
+    @property
+    def layer(self) -> str:
+        """The layer (base, compiler, mpi) that this container is in."""
+        return self.name.removeprefix("moose-").split("-")[0]
+
+    @property
+    def context(self) -> str:
+        """The Docker build context, relative to the repo root."""
+        return f"docker/{self.layer}"
+
+    @property
+    def file(self) -> str:
+        """The path to the Dockerfile, relative to the repo root."""
+        if self._dockerfile is None:
+            raise ContainersException(self.name, "dockerfile is not set")
+        return f"{self.context}/{self._dockerfile}/Dockerfile"
+
+    @property
+    def build_args(self) -> dict[str, str]:
+        """The build arguments, including BUILD_FROM for a parent container."""
+        args = {}
+        if self.from_container is not None:
+            args["BUILD_FROM"] = self.from_container.uri
+        args.update(self._build_args)
+        return args
 
     @property
     def from_container(self) -> Container | None:
@@ -271,6 +321,8 @@ def load_containers(
         if container_from := values.get("from"):
             from_values[name] = container_from
             del values["from"]
+        if "build-args" in values:
+            values["build_args"] = values.pop("build-args")
         return Container(name=f"moose-{name}", **values)
 
     containers = {k: build_container(k, v) for k, v in result.items()}
@@ -294,7 +346,16 @@ def load_current() -> tuple[dict[str, Container], dict]:
         packages = dict(yaml.safe_load(f))
 
     containers_template = jinja2.FileSystemLoader(REPO_ROOT)
-    return load_containers(containers_template, packages), packages
+    containers = load_containers(containers_template, packages)
+
+    # Only the current containers need to be buildable
+    for container in containers.values():
+        if not os.path.isfile(os.path.join(REPO_ROOT, container.file)):
+            raise ContainersException(
+                container.name, f"{container.file} does not exist"
+            )
+
+    return containers, packages
 
 
 def load_previous(ref: str) -> tuple[dict[str, Container], dict]:
@@ -437,6 +498,18 @@ def parse_args():
         help="Delete all pull request images.",
     )
     add_common(delete_all_prs_parser, require_token=True, dry_run=True)
+
+    # workflows action
+    workflows_parser = action_parser.add_parser(
+        "workflows",
+        parents=[parent],
+        help="Generate the workflows from their templates.",
+    )
+    workflows_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Only check that the workflows are up to date.",
+    )
 
     # readme action
     readme_parser = action_parser.add_parser(
@@ -701,7 +774,6 @@ def prepare_with_base(
         ghcr_token = github_ghcr_token(github_token)
 
     # Determine changed containers
-    uris = {}
     changed = {}
     build_summary = []
     unreleased_summary = []
@@ -762,8 +834,6 @@ def prepare_with_base(
         else:
             changed[name] = False
 
-        uris[name] = container.uri
-
     # Determine changed packages
     package_summary = []
     for name in sorted(packages.keys() | base_packages.keys()):
@@ -798,13 +868,23 @@ def prepare_with_base(
         "No unreleased containers",
     )
 
+    # Everything a build job needs, for the generated build.yml jobs. Built
+    # after the loop so that each parent's URI (in BUILD_FROM) is final.
+    build_info = {
+        name: {
+            "changed": changed[name],
+            "uri": container.uri,
+            "context": container.context,
+            "file": container.file,
+            "build_args": "\n".join(
+                f"{k}={v}" for k, v in container.build_args.items()
+            ),
+        }
+        for name, container in current_containers.items()
+    }
+
     # Do github output
-    result = {f"uri-{k}": v for k, v in uris.items()}
-    result.update(
-        {f"changed-{k}": "1" if v else "" for k, v in changed.items()}
-    )
-    result.update({f"package-{k}": v for k, v in packages.items()})
-    write_outputs(result)
+    write_outputs({"containers": json.dumps(build_info, sort_keys=True)})
 
     return build_output + packages_output + unreleased_output
 
@@ -1123,6 +1203,90 @@ def action_readme(args: argparse.Namespace):
     with open(path, "w") as f:
         f.write(updated)
     print(f"Updated {README_FILE}")
+
+
+def render_workflow(template_path: str) -> str:
+    """Render a workflow template with the current containers.
+
+    The template uses [[ ]] and [% %] instead of jinja's default delimiters,
+    so that GitHub's own ${{ }} expressions can be written as is.
+    """
+    containers, _ = load_current()
+    parents = {
+        name: next(
+            k for k, v in containers.items() if v is container.from_container
+        )
+        if container.from_container is not None
+        else None
+        for name, container in containers.items()
+    }
+
+    # Order so that every parent comes before its children
+    ordered: list[str] = []
+    while len(ordered) < len(containers):
+        ready = [
+            name
+            for name in containers
+            if name not in ordered
+            and (parents[name] is None or parents[name] in ordered)
+        ]
+        if not ready:
+            raise ContainersException(
+                ", ".join(n for n in containers if n not in ordered),
+                "from containers form a cycle",
+            )
+        ordered.extend(ready)
+
+    # Containers that nothing is built from; finalize waits on these
+    leaves = [name for name in ordered if name not in parents.values()]
+
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(REPO_ROOT),
+        variable_start_string="[[",
+        variable_end_string="]]",
+        block_start_string="[%",
+        block_end_string="%]",
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=True,
+        undefined=jinja2.StrictUndefined,
+    )
+    template = env.get_template(template_path)
+    return template.render(
+        containers=[(name, parents[name]) for name in ordered], leaves=leaves
+    )
+
+
+def action_workflows(args: argparse.Namespace):
+    """Perform the workflows action."""
+    out_of_date = []
+    for template_path, workflow_path in WORKFLOWS.items():
+        rendered = render_workflow(template_path)
+        path = os.path.join(REPO_ROOT, workflow_path)
+        contents = None
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                contents = f.read()
+
+        if rendered == contents:
+            print(f"{workflow_path} is up to date")
+            continue
+
+        if args.check:
+            out_of_date.append(workflow_path)
+            continue
+
+        with open(path, "w") as f:
+            f.write(rendered)
+        print(f"Updated {workflow_path}")
+
+    if out_of_date:
+        print(
+            "ERROR: The following workflow(s) are out of date:\n\n  "
+            + "\n  ".join(out_of_date)
+            + "\n\nrun:\n\n  uv run python .github/scripts/ci.py workflows"
+        )
+        sys.exit(1)
 
 
 def main():

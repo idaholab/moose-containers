@@ -14,11 +14,16 @@ See [README.md](README.md) for what this repository does.
      Update them along with `rocky8`/`rocky9` in `packages.yml`, or the build fails.
    - `VALGRIND_VERSION` is set in each compiler Dockerfile.
 
-3. **`build.yml` is written by hand.** It doesn't read `containers.yml` for you.
-   - New container: in `build.yml`, add its `changed-*` and `uri-*` outputs to `prepare`,
-     a build job, and an entry in `finalize`.
-   - New package: add a `package-*` output to `prepare` in `build.yml`.
-   - `release.yml` needs no changes; it releases every `release: true` container.
+3. **`build.yml` is generated; don't edit it.** Edit `.github/templates/build.yml.j2`
+   or `containers.yml`, then run `uv run python .github/scripts/ci.py workflows`. The PR
+   build fails if `build.yml` is out of date.
+   - New container: add it to `containers.yml` with its `from`, `dockerfile` (a directory
+     under `docker/<layer>`), `build-args`, `tags` and `date`, then regenerate.
+     Don't list `BUILD_FROM` or `CONTAINER_NAME`; they are filled in for you.
+   - New package: add it to `packages.yml` and use it with `{{ package("...") }}`.
+     No workflow changes are needed.
+   - `release.yml` is written by hand but needs no changes; it releases every
+     `release: true` container.
 
 4. **The Docker build context is `docker/<layer>`.** `COPY` and `--mount` paths are
    relative to it, e.g. `files/install_mpich.bash` or `rocky8-oneapi/files/oneAPI.repo`.
@@ -31,6 +36,7 @@ See [README.md](README.md) for what this repository does.
    - `uv run python .github/scripts/ci.py prepare_push origin/main` shows which containers
      would build and which packages changed. Without a token it skips registry checks.
    - `uv run ruff check` and `uv run ruff format` for Python.
+   - `uvx --from actionlint-py actionlint` for the workflows.
 
 7. **Keep the README current.**
    - The "Released images" table is generated. After changing `packages.yml` or
