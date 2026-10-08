@@ -41,18 +41,6 @@
           # Required to check out a fork on pull_request_target. Safe here,
           # as nothing from pr/ is run on the runner
           allow-unsafe-pr-checkout: true
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: [[ fork_build ]]
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
 [%- endmacro %]
 # Pull requests from this repository work as pushes do, on pull_request.
 #
@@ -92,7 +80,8 @@ jobs:
     if: github.event_name == 'pull_request_target' && [[ build_run ]]
     environment: fork-pr
     runs-on: ubuntu-slim
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Approved
         shell: bash
@@ -100,6 +89,19 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
+[[ checkout_pr() ]]
+      - name: Check pull request
+        # A symlink could point the build at files outside of pr/, such as
+        # the registry login. Checked once here: every job that uses pr/
+        # waits on this one, and checks out the same commit.
+        shell: bash
+        run: |
+          links=$(find pr -path pr/.git -prune -o -type l -print)
+          if [ -n "$links" ]; then
+            echo "::error::Pull requests from forks can't contain symlinks:"
+            echo "$links"
+            exit 1
+          fi
 
   ruff:
     name: ruff
