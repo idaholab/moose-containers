@@ -43,7 +43,9 @@ The pull request build fails if it is out of date.
 
 Values must have exactly the type listed below, so versions and dates must be quoted.
 
-**`packages.yml`** maps a package name to its version:
+#### packages.yml
+
+Maps a package name to its version:
 
 ```yaml
 gcc-ubuntu24: "14.2.0"
@@ -53,7 +55,9 @@ gcc-ubuntu24: "14.2.0"
 | --- | --- | --- |
 | `<name>` | string | The version, used in `containers.yml` as `{{ package("<name>") }}` |
 
-**`containers.yml`** maps a container name to its definition. The image is published as
+#### containers.yml
+
+Maps a container name to its definition. The image is published as
 `moose-<name>`, and the first part of the name is its layer (`base`, `compiler` or `mpi`):
 
 ```yaml
@@ -75,6 +79,17 @@ compiler-ubuntu24-gcc:
 | `from` | string | no | Name of the container in this file to build on |
 | `build-args` | map of string to string | no | Build arguments; `BUILD_FROM` is added for you |
 | `release` | boolean | no (`false`) | Whether to publish the image as a release |
+
+##### Templating
+
+`containers.yml` is rendered with [Jinja](https://jinja.palletsprojects.com) before it
+is loaded. These functions are available:
+
+| Function | Returns |
+| --- | --- |
+| `package("<name>")` | The version of `<name>` in `packages.yml` |
+
+Wrap each call in quotes so the result stays a string, e.g. `"gcc{{ package("gcc-ubuntu24") }}"`.
 
 ### Versioning
 
