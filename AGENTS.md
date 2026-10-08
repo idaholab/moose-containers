@@ -15,7 +15,7 @@ See [README.md](README.md) for what this repository does.
    - `VALGRIND_VERSION` is set in each compiler Dockerfile.
 
 3. **`build.yml` is generated; don't edit it.** Edit `.github/templates/build.yml.j2`
-   or `containers.yml`, then run `uv run python .github/scripts/ci.py workflows`. The PR
+   or `containers.yml`, then run `uv run moosecontainers workflows`. The PR
    build fails if `build.yml` is out of date.
    - New container: add it to `containers.yml` with its `from`, `dockerfile` (a directory
      under `docker/<layer>`), `build-args`, `tags` and `date`, then regenerate.
@@ -33,14 +33,23 @@ See [README.md](README.md) for what this repository does.
    is the expected one. Do the same in new or edited Dockerfiles.
 
 6. **Check your changes locally.**
-   - `uv run python .github/scripts/ci.py prepare_push origin/main` shows which containers
+   - `uv run moosecontainers prepare_push origin/main` shows which containers
      would build and which packages changed. Without a token it skips registry checks.
    - `uv run ruff check` and `uv run ruff format` for Python.
+   - `uv run pytest` for the `moosecontainers` tests. Coverage must stay at 100%.
    - `uvx --from actionlint-py actionlint` for the workflows.
 
-7. **Keep the README current.**
+7. **The CI logic is the `moosecontainers` package.** Run it with `uv run moosecontainers <action>`.
+   - Each command line action is its own module in `moosecontainers/actions/`, with an
+     `add_parser()` for its arguments and a `run()`. Register new actions in `cli.py`.
+   - Tests mirror the package: `moosecontainers/foo.py` is tested by `tests/test_foo.py`,
+     and `moosecontainers/actions/foo.py` by `tests/actions/test_foo.py`.
+   - Tests never make real HTTP requests. They're mocked with `responses`, and any
+     request that isn't mocked fails. `git` runs for real, in a temporary repo.
+
+8. **Keep the README current.**
    - The "Released images" table is generated. After changing `packages.yml` or
-     `containers.yml`, run `uv run python .github/scripts/ci.py readme`. The PR build
+     `containers.yml`, run `uv run moosecontainers readme`. The PR build
      fails if you forget.
    - The example tag in the "Versioning" section is written by hand. If you change
      versions used by `moose-mpi-ubuntu24-gcc`, update it too.

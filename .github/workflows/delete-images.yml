@@ -52,6 +52,6 @@ jobs:
           if [ "$DRY_RUN" == "true" ]; then
             args+=("--dry-run")
           fi
-          uv run --frozen python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             "${args[@]}" \
             --github-token "${{ github.token }}"

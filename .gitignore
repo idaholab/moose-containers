@@ -1,3 +1,4 @@
 *.sif
 .local
 __pycache__/
+.coverage
