@@ -1,2 +1,3 @@
 *.sif
 .local
+__pycache__/
