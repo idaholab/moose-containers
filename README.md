@@ -97,7 +97,7 @@ What to change for common updates:
 After changing `packages.yml` or `containers.yml`, regenerate the released images table
 with `uv run moosecontainers readme`. The pull request build fails if it is out of date.
 
-## File format
+## Configuration
 
 Values must have exactly the type listed below, so versions and dates must be quoted.
 
