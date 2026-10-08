@@ -53,7 +53,7 @@ jobs:
 
   delete-images:
     name: delete-images
-    needs: [ruff]
+    needs: [ruff, pytest]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
@@ -78,7 +78,7 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    needs: [ruff]
+    needs: [ruff, pytest]
     if: >
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
@@ -105,7 +105,7 @@ jobs:
 
   generated:
     name: generated
-    needs: [ruff]
+    needs: [ruff, pytest]
     runs-on: ubuntu-slim
     permissions:
       contents: read
