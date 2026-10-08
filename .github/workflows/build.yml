@@ -20,11 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
@@ -37,11 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Ruff format
         shell: bash
         run: uv run --frozen ruff format --check --diff
@@ -57,11 +51,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Delete
         shell: bash
         env:
@@ -87,11 +78,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Delete
         shell: bash
         env:
@@ -113,11 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Check
         shell: bash
         run: uv run --frozen python ./.github/scripts/ci.py readme --check
@@ -198,11 +183,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Prepare
         id: prepare
         shell: bash
@@ -759,11 +741,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Check
         shell: bash
         run: |
