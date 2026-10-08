@@ -110,6 +110,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -164,6 +167,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -244,6 +250,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 0
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -306,6 +315,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -353,6 +365,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -400,6 +415,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -447,6 +465,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -494,6 +515,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -542,6 +566,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -590,6 +617,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -638,6 +668,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -686,6 +719,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -734,6 +770,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -782,6 +821,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -830,6 +872,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -878,6 +923,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -926,6 +974,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -974,6 +1025,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1022,6 +1076,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1070,6 +1127,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1118,6 +1178,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1166,6 +1229,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1214,6 +1280,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
@@ -1277,6 +1346,9 @@ jobs:
           path: pr
           persist-credentials: false
           fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login

@@ -29,6 +29,9 @@
           path: pr
           persist-credentials: false
           fetch-depth: [[ fetch_depth ]]
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
