@@ -1,0 +1,5 @@
+paths:
+  .github/workflows/build.yml:
+    ignore:
+      # Added in actions/checkout v6, but not yet known to actionlint
+      - 'input "allow-unsafe-pr-checkout" is not defined in action "actions/checkout@v6"'

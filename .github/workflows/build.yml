@@ -39,10 +39,11 @@ jobs:
   fork-pr:
     name: fork-pr
     # Waits for a maintainer to approve building a fork's pull request
-    if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
     environment: fork-pr
     runs-on: ubuntu-slim
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Approved
         shell: bash
@@ -50,6 +51,30 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Check pull request
+        # A symlink could point the build at files outside of pr/, such as
+        # the registry login. Checked once here: every job that uses pr/
+        # waits on this one, and checks out the same commit.
+        shell: bash
+        run: |
+          links=$(find pr -path pr/.git -prune -o -type l -print)
+          if [ -n "$links" ]; then
+            echo "::error::Pull requests from forks can't contain symlinks:"
+            echo "$links"
+            exit 1
+          fi
 
   ruff:
     name: ruff
@@ -103,25 +128,16 @@ jobs:
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -157,25 +173,16 @@ jobs:
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -217,12 +224,8 @@ jobs:
   prepare:
     name: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository)) && 'prepare' || 'prepare (not used)' }}
     needs: [fork-pr, ruff, pytest, delete-images, delete-cache]
-    if: >-
-      always()
-      && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
-      && (github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')
-      && needs.delete-images.result != 'failure'
-      && needs.delete-cache.result != 'failure'
+    # Never skipped; see required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -231,37 +234,45 @@ jobs:
     outputs:
       containers: ${{ steps.prepare.outputs.containers }}
     steps:
+      - name: Not used
+        if: ${{ !((github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
+      - name: Check jobs
+        if: >-
+          (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+          && !((github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')
+            && needs.delete-images.result != 'failure'
+            && needs.delete-cache.result != 'failure')
+        shell: bash
+        run: |
+          echo "::error::A job that prepare depends on did not succeed"
+          exit 1
       - name: Checkout
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 0
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Install uv
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Prepare
         id: prepare
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
@@ -287,6 +298,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && fromJSON(needs.prepare.outputs.containers)['base-rocky8'].changed
     runs-on: ubuntu-24.04
     permissions:
@@ -299,25 +311,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -334,6 +337,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].changed
     runs-on: ubuntu-24.04
     permissions:
@@ -346,25 +350,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -381,6 +376,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && fromJSON(needs.prepare.outputs.containers)['base-rocky9'].changed
     runs-on: ubuntu-24.04
     permissions:
@@ -393,25 +389,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -428,6 +415,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].changed
     runs-on: ubuntu-24.04
     permissions:
@@ -440,25 +428,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -475,6 +454,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].changed
     runs-on: ubuntu-24.04
     permissions:
@@ -487,25 +467,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -522,6 +493,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8-cuda.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].changed
     runs-on: ubuntu-24.04
@@ -535,25 +507,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -570,6 +533,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].changed
     runs-on: ubuntu-24.04
@@ -583,25 +547,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -618,6 +573,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-rocky9.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].changed
     runs-on: ubuntu-24.04
@@ -631,25 +587,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -666,6 +613,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].changed
     runs-on: ubuntu-24.04
@@ -679,25 +627,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -714,6 +653,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].changed
     runs-on: ubuntu-24.04
@@ -727,25 +667,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -762,6 +693,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].changed
     runs-on: ubuntu-24.04
@@ -775,25 +707,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -810,6 +733,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24-cuda.result)
       && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].changed
     runs-on: ubuntu-24.04
@@ -823,25 +747,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -858,6 +773,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-cuda-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].changed
     runs-on: ubuntu-24.04
@@ -871,25 +787,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -906,6 +813,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].changed
     runs-on: ubuntu-24.04
@@ -919,25 +827,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -954,6 +853,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].changed
     runs-on: ubuntu-24.04
@@ -967,25 +867,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1002,6 +893,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky9-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].changed
     runs-on: ubuntu-24.04
@@ -1015,25 +907,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1050,6 +933,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-cuda-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].changed
     runs-on: ubuntu-24.04
@@ -1063,25 +947,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1098,6 +973,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-clang.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].changed
     runs-on: ubuntu-24.04
@@ -1111,25 +987,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1146,6 +1013,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-gcc.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].changed
     runs-on: ubuntu-24.04
@@ -1159,25 +1027,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1194,6 +1053,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-gccmin.result)
       && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].changed
     runs-on: ubuntu-24.04
@@ -1207,25 +1067,16 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -1248,52 +1099,50 @@ jobs:
       - mpi-ubuntu24-gcc
       - mpi-ubuntu24-gccmin
     # Always run, so that this required check fails rather than being
-    # skipped (which GitHub reports as success) when a build fails
-    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository)) }}
+    # skipped (which GitHub reports as success) when a build fails; see
+    # required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+      - name: Not used
+        if: ${{ !((github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
       - name: Check jobs
-        # prepare is skipped (not failed) when its own dependencies fail,
-        # such as ruff or pytest, so it must have succeeded
         if: >-
-          needs.prepare.result != 'success'
-          || contains(needs.*.result, 'failure')
-          || contains(needs.*.result, 'cancelled')
+          (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+          && (needs.prepare.result != 'success'
+            || contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled'))
         shell: bash
         run: |
           echo "::error::A job that finalize depends on did not succeed"
           exit 1
       - name: Checkout
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: 1
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Install uv
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Check
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
