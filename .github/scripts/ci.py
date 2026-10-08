@@ -1,3 +1,5 @@
+"""CI utilities for building, releasing, and cleaning MOOSE containers."""
+
 import argparse
 import datetime
 import os
@@ -57,7 +59,10 @@ README_END = "<!-- releases:end -->"
 
 
 class ContainersException(Exception):
+    """Exception for an error in the containers file."""
+
     def __init__(self, name: str, message: str):
+        """Initialize the exception for the given container name."""
         super().__init__(f"{CONTAINERS_FILE}: {name}: {message}")
 
 
@@ -70,7 +75,10 @@ def git_show(path: str, ref: str) -> str:
 class Container:
     """Data class for a single container to be built."""
 
-    def __init__(self, name: str, tags: list[str], date: str, release: bool = False):
+    def __init__(
+        self, name: str, tags: list[str], date: str, release: bool = False
+    ):
+        """Initialize the container."""
         assert isinstance(name, str)
         assert isinstance(tags, list)
         assert all(isinstance(v, str) for v in tags)
@@ -106,10 +114,10 @@ class Container:
         """Whether or not this container has a PR name/tag. Used in the URI."""
 
         self._main_tag: bool = False
-        """Whether or not this container has a main name/tag. Used in the URI."""
+        """Whether or not this container has a main name/tag (for the URI)."""
 
         self._release_tag: bool = False
-        """Whether or not this container has a release name/tag. Used in the URI."""
+        """Whether or not this container has a release tag (for the URI)."""
 
     @property
     def name(self) -> str:
@@ -133,6 +141,7 @@ class Container:
 
     @property
     def from_container(self) -> Container | None:
+        """The container this container is built from, if any."""
         assert self._from_container is None or isinstance(
             self._from_container, Container
         )
@@ -201,6 +210,7 @@ class Container:
         return f"https://github.com/{FULL_REPO}/pkgs/container/moose-containers%2F{self.repo}"
 
     def exists(self, ghcr_token: str) -> bool:
+        """Check if this container exists in the registry."""
         return github_container_exists(self, ghcr_token)
 
     def set_from_container(self, from_container: Container):
@@ -210,6 +220,7 @@ class Container:
         self._from_container = from_container
 
     def set_pr_tag(self, pr: int):
+        """Set the pull request tag. Can only be called once."""
         assert isinstance(pr, int)
         assert self._pr_tag is None
         assert not self._main_tag
@@ -217,12 +228,14 @@ class Container:
         self._pr_tag = pr
 
     def set_main_tag(self):
+        """Set the main tag. Can only be called once."""
         assert self._pr_tag is None
         assert not self._main_tag
         assert not self._release_tag
         self._main_tag = True
 
     def set_release_tag(self):
+        """Set the release tag. Can only be called once."""
         assert self._pr_tag is None
         assert not self._main_tag
         assert not self._release_tag
@@ -265,15 +278,16 @@ def load_containers(
     for name, from_value in from_values.items():
         from_container = containers.get(from_value)
         if from_container is None:
-            raise ContainersException(name, f"from container {from_value} not found")
+            raise ContainersException(
+                name, f"from container {from_value} not found"
+            )
         containers[name].set_from_container(from_container)
 
     return containers
 
 
 def load_current() -> tuple[dict[str, Container], dict]:
-    """Render the current containers.yml template with the current packages.yml."""
-
+    """Render the current containers.yml with the current packages.yml."""
     # Load packages config
     with open(os.path.join(REPO_ROOT, PACKAGES_FILE), "r") as f:
         packages = dict(yaml.safe_load(f))
@@ -290,13 +304,16 @@ def load_previous(ref: str) -> tuple[dict[str, Container], dict]:
 
 
 def parse_args():
+    """Parse the command line arguments."""
     parser = argparse.ArgumentParser(
         description="Prepare container listing and changes."
     )
 
     parent = argparse.ArgumentParser(add_help=False)
 
-    action_parser = parser.add_subparsers(dest="action", help="Action to perform")
+    action_parser = parser.add_subparsers(
+        dest="action", help="Action to perform"
+    )
     action_parser.required = True
 
     def add_common(
@@ -305,7 +322,10 @@ def parse_args():
         dry_run: bool = False,
     ):
         parser.add_argument(
-            "--github-token", type=str, help="The github token", required=require_token
+            "--github-token",
+            type=str,
+            help="The github token",
+            required=require_token,
         )
         if dry_run:
             parser.add_argument(
@@ -314,7 +334,9 @@ def parse_args():
 
     def add_base_ref(parser: argparse.ArgumentParser):
         parser.add_argument(
-            "base_ref", type=str, help="The base git reference to compare against."
+            "base_ref",
+            type=str,
+            help="The base git reference to compare against.",
         )
 
     def add_pr(parser: argparse.ArgumentParser):
@@ -349,7 +371,9 @@ def parse_args():
     post_pr_parser = action_parser.add_parser(
         "post_pr",
         parents=[parent],
-        help="Perform the post-pull request action (check if containers exist).",
+        help=(
+            "Perform the post-pull request action (check if containers exist)."
+        ),
     )
     add_pr(post_pr_parser)
     add_common(post_pr_parser)
@@ -366,7 +390,10 @@ def parse_args():
     post_release_parser = action_parser.add_parser(
         "post_release",
         parents=[parent],
-        help="Perform the post-release request action (check if containers exist).",
+        help=(
+            "Perform the post-release request action "
+            "(check if containers exist)."
+        ),
     )
     add_common(post_release_parser)
 
@@ -426,6 +453,7 @@ def parse_args():
 
 
 def print_section(title: str, contents: str | list[str]):
+    """Print a section of output, grouped when in a GitHub action."""
     github = os.environ.get("GITHUB_ACTIONS") == "true"
 
     if github:
@@ -461,12 +489,16 @@ def github_api_delete(url: str, token: str):
     response.raise_for_status()
 
 
-def github_get_pr_comment(pr: int, marker: str, github_token: str) -> int | None:
+def github_get_pr_comment(
+    pr: int, marker: str, github_token: str
+) -> int | None:
     """Find a previous comment from this job by looking for our marker."""
     url = f"{GITHUB_API_URL}repos/{FULL_REPO}/issues/{pr}/comments"
 
     while url:
-        response = requests.get(url, headers=get_github_api_headers(github_token))
+        response = requests.get(
+            url, headers=get_github_api_headers(github_token)
+        )
         response.raise_for_status()
         comments = response.json()
 
@@ -484,12 +516,14 @@ def github_get_pr_comment(pr: int, marker: str, github_token: str) -> int | None
 
 def github_delete_pr_comment(comment_id: int, github_token: str):
     """Delete a GitHub comment by ID."""
-    github_api_delete(f"repos/{FULL_REPO}/issues/comments/{comment_id}", github_token)
+    github_api_delete(
+        f"repos/{FULL_REPO}/issues/comments/{comment_id}", github_token
+    )
     print(f"Deleted previous comment {comment_id}")
 
 
 def github_post_pr_comment(pr: int, body: str, marker: str, github_token: str):
-    """Post a new comment to the PR, deleting the old one with the same marker."""
+    """Post a new comment to the PR, deleting the old one with the marker."""
     existing_id = github_get_pr_comment(pr, marker, github_token)
 
     if existing_id is not None:
@@ -586,7 +620,8 @@ def github_get_containers(repo: str, token: str) -> list[GitHubContainer]:
     """Get all of the containers under the given container repo."""
     name = f"{REPO}/{repo}"
 
-    url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(name, safe='')}/versions"
+    quoted_name = urllib.parse.quote(name, safe="")
+    url = f"orgs/{ORG}/packages/container/{quoted_name}/versions"
     try:
         result = github_api_get_paginated(url, token)
     except requests.exceptions.HTTPError as e:
@@ -609,7 +644,8 @@ def github_get_containers(repo: str, token: str) -> list[GitHubContainer]:
 
 def github_delete_container(github_container: GitHubContainer, token: str):
     """Delete a container from the GitHub container repository."""
-    url = f"orgs/{ORG}/packages/container/{urllib.parse.quote(github_container.name, safe='')}/versions"
+    quoted_name = urllib.parse.quote(github_container.name, safe="")
+    url = f"orgs/{ORG}/packages/container/{quoted_name}/versions"
     github_api_delete(f"{url}/{github_container.id}", token)
 
 
@@ -619,6 +655,7 @@ def prepare_with_base(
     main: bool = False,
     github_token: str | None = None,
 ) -> str:
+    """Prepare a build by comparing against the given base reference."""
     assert pr is not None or main
     assert (pr is not None) != main
 
@@ -661,19 +698,32 @@ def prepare_with_base(
         if base_container is not None and base_container.date > container.date:
             raise ContainersException(container.name, "date moved back")
 
-        build = base_container is None or container.raw_tag != base_container.raw_tag
+        build = (
+            base_container is None
+            or container.raw_tag != base_container.raw_tag
+        )
 
         if build and pr is not None:
             container.set_pr_tag(pr)
         else:
             container.set_main_tag()
 
-        if not build and ghcr_token and main and not container.exists(ghcr_token):
-            print(f"::warning::Container {container.uri} does not exist; building")
+        if (
+            not build
+            and ghcr_token
+            and main
+            and not container.exists(ghcr_token)
+        ):
+            print(
+                f"::warning::Container {container.uri} does not exist; building"
+            )
             build = True
 
         if build:
-            if base_container is not None and base_container.date > container.date:
+            if (
+                base_container is not None
+                and base_container.date > container.date
+            ):
                 raise ContainersException(container.name, "date moved back")
             changed[name] = True
             summary_name = f"[`{container.name}`]({container.url})"
@@ -696,14 +746,20 @@ def prepare_with_base(
         base_value = base_packages.get(name)
         if value != base_value:
             value_output = f"`{value}`" if value is not None else "REMOVED"
-            base_value_output = f"`{base_value}`" if base_value is not None else "ADDED"
-            package_summary.append((f"`{name}`", base_value_output, value_output))
+            base_value_output = (
+                f"`{base_value}`" if base_value is not None else "ADDED"
+            )
+            package_summary.append(
+                (f"`{name}`", base_value_output, value_output)
+            )
 
     # Build summary table
     build_output = "## Container builds\n\n"
     if build_summary:
         build_output += tabulate(
-            build_summary, headers=["container", "base tag", "uri"], tablefmt="github"
+            build_summary,
+            headers=["container", "base tag", "uri"],
+            tablefmt="github",
         )
     else:
         build_output += "No containers to build"
@@ -745,7 +801,9 @@ def prepare_with_base(
 
     # Do github output
     result = {f"uri-{k}": v for k, v in uris.items()}
-    result.update({f"changed-{k}": "1" if v else "" for k, v in changed.items()})
+    result.update(
+        {f"changed-{k}": "1" if v else "" for k, v in changed.items()}
+    )
     result.update({f"package-{k}": v for k, v in packages.items()})
     output = []
     for k, v in result.items():
@@ -760,6 +818,7 @@ def prepare_with_base(
 
 
 def action_prepare_pr(args: argparse.Namespace):
+    """Perform the prepare_pr action."""
     pr = args.pr
     github_token = args.github_token
 
@@ -774,10 +833,12 @@ def action_prepare_pr(args: argparse.Namespace):
 
 
 def action_prepare_push(args: argparse.Namespace):
+    """Perform the prepare_push action."""
     prepare_with_base(args.base_ref, main=True, github_token=args.github_token)
 
 
 def action_prepare_release(args: argparse.Namespace):
+    """Perform the prepare_release action."""
     github_token = args.github_token
 
     containers, _ = load_current()
@@ -812,7 +873,9 @@ def action_prepare_release(args: argparse.Namespace):
 
         # Check for existance of main container
         if not main_container.exists(ghcr_token):
-            print(f"::error::Main container {main_container.uri} does not exist")
+            print(
+                f"::error::Main container {main_container.uri} does not exist"
+            )
             missing_containers = True
 
         release_from[name] = main_container.uri
@@ -857,7 +920,10 @@ def action_prepare_release(args: argparse.Namespace):
     print_section("Output", output)
 
 
-def post_action(github_token: str, pr: int | None = None, release: bool = False):
+def post_action(
+    github_token: str, pr: int | None = None, release: bool = False
+):
+    """Check that the expected containers exist after a build."""
     ghcr_token = github_ghcr_token(github_token)
 
     containers, _ = load_current()
@@ -906,21 +972,24 @@ def post_action(github_token: str, pr: int | None = None, release: bool = False)
 
     if missing_containers:
         print(
-            "\nThe following container(s) do not exist in the container registry:\n\n  - "
-            + "\n  - ".join(missing_containers)
+            "\nThe following container(s) do not exist in the container "
+            "registry:\n\n  - " + "\n  - ".join(missing_containers)
         )
         sys.exit(1)
 
 
 def action_post_pr(args: argparse.Namespace):
+    """Perform the post_pr action."""
     post_action(args.github_token, pr=args.pr)
 
 
 def action_post_push(args: argparse.Namespace):
+    """Perform the post_push action."""
     post_action(args.github_token)
 
 
 def action_post_release(args: argparse.Namespace):
+    """Perform the post_release action."""
     post_action(args.github_token, release=True)
 
 
@@ -930,6 +999,7 @@ def delete_containers(
     dry_run: bool,
     allow_missing_repos: bool,
 ):
+    """Delete staging containers that match the given condition."""
     current_containers, _ = load_current()
 
     missing_repos = []
@@ -953,7 +1023,9 @@ def delete_containers(
 
             if condition(github_container):
                 if len(github_container.tags) == 1:
-                    context = github_container.uri.replace("@", f":{github_container.tags[0]}@")
+                    context = github_container.uri.replace(
+                        "@", f":{github_container.tags[0]}@"
+                    )
                 else:
                     context = github_container.uri
                 context += f" id={github_container.id}"
@@ -976,6 +1048,8 @@ def delete_containers(
 
 
 def action_delete_untagged(args: argparse.Namespace):
+    """Perform the delete_untagged action."""
+
     def condition(github_container: GitHubContainer) -> bool:
         return len(github_container.tags) == 0
 
@@ -983,6 +1057,7 @@ def action_delete_untagged(args: argparse.Namespace):
 
 
 def action_delete_pr(args: argparse.Namespace):
+    """Perform the delete_pr action."""
     pr = args.pr
     only_cache = args.only_cache
     only_images = args.only_images
@@ -1011,6 +1086,8 @@ def action_delete_pr(args: argparse.Namespace):
 
 
 def action_delete_all_prs(args: argparse.Namespace):
+    """Perform the delete_all_prs action."""
+
     def condition(github_container: GitHubContainer) -> bool:
         return (
             len(github_container.tags) == 1
@@ -1041,6 +1118,7 @@ def build_readme_releases() -> str:
 
 
 def action_readme(args: argparse.Namespace):
+    """Perform the readme action."""
     path = os.path.join(REPO_ROOT, README_FILE)
     with open(path, "r") as f:
         contents = f.read()
@@ -1072,6 +1150,7 @@ def action_readme(args: argparse.Namespace):
 
 
 def main():
+    """Run the action given on the command line."""
     args = parse_args()
 
     globals()[f"action_{args.action}"](args)
