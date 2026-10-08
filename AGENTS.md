@@ -53,3 +53,23 @@ See [README.md](README.md) for what this repository does.
      fails if you forget.
    - The example tag in the "Versioning" section is written by hand. If you change
      versions used by `moose-mpi-ubuntu24-gcc`, update it too.
+
+9. **Keep fork pull requests safe when changing CI.** Pull requests from forks are
+   built on `pull_request_target`, with a token that can push images and comment. See
+   "Pull requests from forks" in the README.
+   - Never run a fork's code with a write token. The pull request is checked out into
+     `pr/` only as data (its `containers.yml`, `packages.yml` and `docker/` contexts);
+     the workflow, `moosecontainers` and `.github/actions` always come from the base
+     branch. Don't `uv run`, `source` or execute anything from `pr/`.
+   - Every job that has a write token or checks out `pr/` must wait on `fork-pr` (the
+     maintainer's approval) and check out `github.event.pull_request.head.sha`, not
+     the pull request's branch or merge ref.
+   - Give each job only the `permissions:` it needs, set `persist-credentials: false`
+     on checkouts that don't push, and keep the uv cache off for `pull_request_target`.
+   - Don't put `${{ github.event... }}` values that a fork controls (branch names,
+     titles, bodies) directly in `run:`; pass them through `env:`.
+   - Treat the configuration as untrusted: keep `containers.yml` rendered in the
+     sandboxed jinja environment, and keep the character limits on its values in
+     `loader.py`.
+   - A new workflow that uses `pull_request_target` must also be added to
+     `.github/policies/pull-request-target.json`, and the policy applied.

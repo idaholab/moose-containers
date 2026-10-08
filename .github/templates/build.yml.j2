@@ -14,33 +14,36 @@
 [% set ready = "(github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')" %]
 [#
   A skipped job passes a required check, so the required jobs (prepare and
-  finalize) take another name in the run that skips them
+  finalize) take another name in the run that doesn't use them. GitHub only
+  evaluates the name of a job that runs, so these jobs are never skipped:
+  every step checks build_run instead, and in the other run they do nothing.
 #]
 [% macro required_name(name) %]${{ [[ build_run ]] && '[[ name ]]' || '[[ name ]] (not used)' }}[% endmacro %]
+[% macro not_used() %]
+      - name: Not used
+        if: ${{ !([[ build_run ]]) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
+[%- endmacro %]
 [% set uv_cache = "${{ github.event_name != 'pull_request_target' }}" %]
 [% set pr_root = "${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}" %]
+[#
+  The fork run: build_run with the event known to be pull_request_target
+#]
+[% set fork_build = "github.event_name == 'pull_request_target' && " ~ fork %]
 [% macro checkout_pr(fetch_depth=1) %]
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: [[ fork_build ]]
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
           fetch-depth: [[ fetch_depth ]]
-      - name: Check pull request
-        # A symlink could point the build at files outside of pr/, such as
-        # the registry login
-        if: github.event_name == 'pull_request_target'
-        shell: bash
-        run: |
-          links=$(find pr -path pr/.git -prune -o -type l -print)
-          if [ -n "$links" ]; then
-            echo "::error::Pull requests from forks can't contain symlinks:"
-            echo "$links"
-            exit 1
-          fi
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
 [%- endmacro %]
 # Pull requests from this repository work as pushes do, on pull_request.
 #
@@ -77,10 +80,11 @@ jobs:
   fork-pr:
     name: fork-pr
     # Waits for a maintainer to approve building a fork's pull request
-    if: github.event_name == 'pull_request_target' && [[ build_run ]]
+    if: [[ fork_build ]]
     environment: fork-pr
     runs-on: ubuntu-slim
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Approved
         shell: bash
@@ -88,6 +92,19 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
+[[ checkout_pr() ]]
+      - name: Check pull request
+        # A symlink could point the build at files outside of pr/, such as
+        # the registry login. Checked once here: every job that uses pr/
+        # waits on this one, and checks out the same commit.
+        shell: bash
+        run: |
+          links=$(find pr -path pr/.git -prune -o -type l -print)
+          if [ -n "$links" ]; then
+            echo "::error::Pull requests from forks can't contain symlinks:"
+            echo "$links"
+            exit 1
+          fi
 
   ruff:
     name: ruff
@@ -215,12 +232,8 @@ jobs:
   prepare:
     name: [[ required_name("prepare") ]]
     needs: [fork-pr, ruff, pytest, delete-images, delete-cache]
-    if: >-
-      always()
-      && [[ build_run ]]
-      && [[ ready ]]
-      && needs.delete-images.result != 'failure'
-      && needs.delete-cache.result != 'failure'
+    # Never skipped; see required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -229,17 +242,31 @@ jobs:
     outputs:
       containers: ${{ steps.prepare.outputs.containers }}
     steps:
+[[ not_used() ]]
+      - name: Check jobs
+        if: >-
+          [[ build_run ]]
+          && !([[ ready ]]
+            && needs.delete-images.result != 'failure'
+            && needs.delete-cache.result != 'failure')
+        shell: bash
+        run: |
+          echo "::error::A job that prepare depends on did not succeed"
+          exit 1
       - name: Checkout
+        if: [[ build_run ]]
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 [[ checkout_pr(0) ]]
       - name: Install uv
+        if: [[ build_run ]]
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Prepare
         id: prepare
+        if: [[ build_run ]]
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
@@ -266,6 +293,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
 [% if parent %]
       && contains(fromJSON('["success", "skipped"]'), needs.[[ parent ]].result)
 [% endif %]
@@ -298,32 +326,36 @@ jobs:
       - [[ name ]]
 [% endfor %]
     # Always run, so that this required check fails rather than being
-    # skipped (which GitHub reports as success) when a build fails
-    if: ${{ !cancelled() && [[ build_run ]] }}
+    # skipped (which GitHub reports as success) when a build fails; see
+    # required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+[[ not_used() ]]
       - name: Check jobs
-        # prepare is skipped (not failed) when its own dependencies fail,
-        # such as ruff or pytest, so it must have succeeded
         if: >-
-          needs.prepare.result != 'success'
-          || contains(needs.*.result, 'failure')
-          || contains(needs.*.result, 'cancelled')
+          [[ build_run ]]
+          && (needs.prepare.result != 'success'
+            || contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled'))
         shell: bash
         run: |
           echo "::error::A job that finalize depends on did not succeed"
           exit 1
       - name: Checkout
+        if: [[ build_run ]]
         uses: actions/checkout@v6
 [[ checkout_pr() ]]
       - name: Install uv
+        if: [[ build_run ]]
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Check
+        if: [[ build_run ]]
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
