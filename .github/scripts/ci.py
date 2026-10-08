@@ -939,7 +939,7 @@ def post_action(
     release_containers = {}
     if release:
         release_containers = deepcopy(containers)
-        [v.set_release_tag() for v in pr_containers.values()]
+        [v.set_release_tag() for v in release_containers.values()]
 
     def check_exists(name: str, containers: dict[str, Container]) -> bool:
         other_container = containers.get(name)
