@@ -32,8 +32,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen python ./.github/scripts/ci.py \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-images \
@@ -62,8 +61,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen python ./.github/scripts/ci.py \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-cache \
@@ -169,9 +167,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          source .venv/bin/activate
-
-          prepare_cmd=("python" "./.github/scripts/ci.py")
+          prepare_cmd=("uv" "run" "--frozen" "python" "./.github/scripts/ci.py")
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
             "${prepare_cmd[@]}" \
@@ -731,14 +727,12 @@ jobs:
       - name: Check
         shell: bash
         run: |
-          source .venv/bin/activate
-
           cmd_args=()
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
             cmd_args+=("post_pr" "${{ github.event.pull_request.number }}")
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             cmd_args+=("post_push")
           fi
-          python ./.github/scripts/ci.py \
+          uv run --frozen python ./.github/scripts/ci.py \
             "${cmd_args[@]}" \
             --github-token "${{ secrets.GITHUB_TOKEN }}"

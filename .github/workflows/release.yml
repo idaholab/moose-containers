@@ -51,8 +51,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py prepare_release --github-token "${{ secrets.GITHUB_TOKEN }}"
+          uv run --frozen python ./.github/scripts/ci.py prepare_release --github-token "${{ secrets.GITHUB_TOKEN }}"
 
   merge-release:
     name: merge-release
@@ -304,7 +303,6 @@ jobs:
       - name: Check
         shell: bash
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen python ./.github/scripts/ci.py \
             post_release \
             --github-token "${{ secrets.GITHUB_TOKEN }}"

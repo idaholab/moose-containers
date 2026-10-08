@@ -23,8 +23,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen python ./.github/scripts/ci.py \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --github-token ${{ github.token }}
