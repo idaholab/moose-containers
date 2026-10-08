@@ -10,3 +10,11 @@ dependencies = [
     "requests",
     "ruff",
 ]
+
+[tool.ruff]
+line-length = 80
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "N801", "SIM", "TID"]
+ignore = ["D203", "D213"]
