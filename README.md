@@ -216,14 +216,14 @@ Only the images MOOSE actually uses are marked for release: `moose-base-rocky8` 
 
 ## Cleanup
 
-Cleanup workflows keep the staging registry from filling up:
+The **[Delete images](.github/workflows/delete-images.yml)** workflow keeps the staging
+registry from filling up:
 
-- **[Delete PR images](.github/workflows/delete-pr-images.yml)** runs automatically when a
-  pull request is closed. It deletes that pull request's images and build cache.
-- **[Delete all PR images](.github/workflows/delete-all-pr-images.yml)** (manual) deletes
-  the images from every pull request.
-- **[Delete untagged images](.github/workflows/delete-untagged-images.yml)** (manual)
-  deletes untagged image versions left behind in the staging repositories.
+- It runs automatically when a pull request is closed, and deletes that pull request's
+  images and build cache.
+- It can also be run by hand. Choose `all-prs` to delete the images from every pull
+  request, or `untagged` to delete untagged image versions left behind in the staging
+  repositories. Check **dry_run** to only list what would be deleted.
 
 ## Updating a container
 
