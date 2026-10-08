@@ -39,7 +39,7 @@ jobs:
   fork-pr:
     name: fork-pr
     # Waits for a maintainer to approve building a fork's pull request
-    if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
     environment: fork-pr
     runs-on: ubuntu-slim
     permissions:
@@ -53,7 +53,7 @@ jobs:
         run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -128,7 +128,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -173,7 +173,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -255,7 +255,7 @@ jobs:
           fetch-depth: 0
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -311,7 +311,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -350,7 +350,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -389,7 +389,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -428,7 +428,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -467,7 +467,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -507,7 +507,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -547,7 +547,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -587,7 +587,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -627,7 +627,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -667,7 +667,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -707,7 +707,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -747,7 +747,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -787,7 +787,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -827,7 +827,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -867,7 +867,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -907,7 +907,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -947,7 +947,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -987,7 +987,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -1027,7 +1027,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -1067,7 +1067,7 @@ jobs:
           persist-credentials: false
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -1126,7 +1126,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target' && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}

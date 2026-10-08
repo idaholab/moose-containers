@@ -27,7 +27,10 @@
 [%- endmacro %]
 [% set uv_cache = "${{ github.event_name != 'pull_request_target' }}" %]
 [% set pr_root = "${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}" %]
-[% set fork_build = "github.event_name == 'pull_request_target' && " ~ build_run %]
+[#
+  The fork run: build_run with the event known to be pull_request_target
+#]
+[% set fork_build = "github.event_name == 'pull_request_target' && " ~ fork %]
 [% macro checkout_pr(fetch_depth=1) %]
       - name: Checkout pull request
         # As data only; see the top of this file
@@ -77,7 +80,7 @@ jobs:
   fork-pr:
     name: fork-pr
     # Waits for a maintainer to approve building a fork's pull request
-    if: github.event_name == 'pull_request_target' && [[ build_run ]]
+    if: [[ fork_build ]]
     environment: fork-pr
     runs-on: ubuntu-slim
     permissions:
