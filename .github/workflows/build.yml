@@ -1,6 +1,6 @@
 # Generated from .github/templates/build.yml.j2 by
 #
-#   uv run python .github/scripts/ci.py workflows
+#   uv run moosecontainers workflows
 #
 # Don't edit this file by hand; edit the template or containers.yml instead.
 
@@ -37,9 +37,23 @@ jobs:
         shell: bash
         run: uv run --frozen ruff format --check --diff
 
+  pytest:
+    name: pytest
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Test
+        shell: bash
+        run: uv run --frozen pytest
+
   delete-images:
     name: delete-images
-    needs: [ruff]
+    needs: [ruff, pytest]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
@@ -55,7 +69,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
         run: |
-          uv run --frozen python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-images \
@@ -64,7 +78,7 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    needs: [ruff]
+    needs: [ruff, pytest]
     if: >
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
@@ -82,7 +96,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
         run: |
-          uv run --frozen python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-cache \
@@ -91,7 +105,7 @@ jobs:
 
   generated:
     name: generated
-    needs: [ruff]
+    needs: [ruff, pytest]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -102,19 +116,20 @@ jobs:
         uses: astral-sh/setup-uv@v10.2.0
       - name: Check README
         shell: bash
-        run: uv run --frozen python ./.github/scripts/ci.py readme --check
+        run: uv run --frozen moosecontainers readme --check
       - name: Check workflows
         # Report both, even when the README check fails
         if: ${{ !cancelled() }}
         shell: bash
-        run: uv run --frozen python ./.github/scripts/ci.py workflows --check
+        run: uv run --frozen moosecontainers workflows --check
 
   prepare:
     name: prepare
-    needs: [ruff, delete-images, delete-cache]
+    needs: [ruff, pytest, delete-images, delete-cache]
     if: >-
       always()
       && needs.ruff.result == 'success'
+      && needs.pytest.result == 'success'
       && needs.delete-images.result != 'failure'
       && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
@@ -135,7 +150,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          prepare_cmd=("uv" "run" "--frozen" "python" "./.github/scripts/ci.py")
+          prepare_cmd=("uv" "run" "--frozen" "moosecontainers")
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
           if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
             "${prepare_cmd[@]}" \
@@ -646,7 +661,7 @@ jobs:
     steps:
       - name: Check jobs
         # prepare is skipped (not failed) when its own dependencies fail,
-        # such as ruff, so it must have succeeded
+        # such as ruff or pytest, so it must have succeeded
         if: >-
           needs.prepare.result != 'success'
           || contains(needs.*.result, 'failure')
@@ -670,6 +685,6 @@ jobs:
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             cmd_args+=("post_push")
           fi
-          uv run --frozen python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             "${cmd_args[@]}" \
             --github-token "${{ secrets.GITHUB_TOKEN }}"

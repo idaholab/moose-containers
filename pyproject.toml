@@ -11,6 +11,17 @@ dependencies = [
     "ruff==0.16.10",
 ]
 
+[project.scripts]
+moosecontainers = "moosecontainers.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.19"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "moosecontainers"
+module-root = ""
+
 [tool.ruff]
 line-length = 80
 target-version = "py314"
@@ -18,3 +29,20 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["D", "E", "F", "I", "N801", "SIM", "TID"]
 ignore = ["D203", "D213"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "responses==0.26.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--import-mode=importlib",
+    "--cov=moosecontainers",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-fail-under=100",
+]

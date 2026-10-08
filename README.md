@@ -34,7 +34,7 @@ parent. That workflow, [`build.yml`](.github/workflows/build.yml), is generated 
 After adding, removing or re-parenting a container, regenerate it:
 
 ```bash
-uv run python .github/scripts/ci.py workflows
+uv run moosecontainers workflows
 ```
 
 The pull request build fails if it is out of date.
@@ -236,6 +236,19 @@ registry from filling up:
 - It can also be run by hand. Choose `all-prs` to delete the images from every pull
   request, or `untagged` to delete untagged image versions left behind in the staging
   repositories. Check **dry_run** to only list what would be deleted.
+
+## CI tooling
+
+The workflows run the [`moosecontainers`](moosecontainers) Python package, which works
+out what to build, release, and delete, and generates `build.yml` and the release table.
+Run it with `uv run moosecontainers <action>`; `uv run moosecontainers --help` lists the
+actions. Its tests are in [`tests`](tests) and run with:
+
+```bash
+uv run pytest
+```
+
+The tests mock every request to GitHub and require 100% coverage.
 
 ## Updating a container
 
