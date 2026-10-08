@@ -472,6 +472,35 @@ def print_section(title: str, contents: str | list[str]):
         print()
 
 
+def build_summary_table(
+    title: str, rows: list[tuple], headers: list[str], empty: str
+) -> str:
+    """Build a markdown summary section with a table, or a note if empty.
+
+    Also prints it and, in a GitHub action, appends it to the step summary.
+    """
+    output = f"## {title}\n\n"
+    if rows:
+        output += tabulate(rows, headers=headers, tablefmt="github")
+    else:
+        output += empty
+    if GITHUB_ACTION:
+        output += "\n\n"
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+            f.write(output)
+    print_section(f"{title} summary", output)
+    return output
+
+
+def write_outputs(outputs: dict[str, str]):
+    """Print the given step outputs and write them in a GitHub action."""
+    lines = [f"{k}={v}" for k, v in outputs.items()]
+    if GITHUB_ACTION:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.writelines(f"{line}\n" for line in lines)
+    print_section("Output", lines)
+
+
 def get_github_api_headers(github_token: str) -> dict:
     """Get the headers for authenticating to the GitHub API."""
     return {
@@ -748,51 +777,25 @@ def prepare_with_base(
                 (f"`{name}`", base_value_output, value_output)
             )
 
-    # Build summary table
-    build_output = "## Container builds\n\n"
-    if build_summary:
-        build_output += tabulate(
-            build_summary,
-            headers=["container", "base tag", "uri"],
-            tablefmt="github",
-        )
-    else:
-        build_output += "No containers to build"
-    if GITHUB_ACTION:
-        build_output += "\n\n"
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write(build_output)
-    print_section("Container build summary", build_output)
-
-    # Packages summary table
-    packages_output = "## Packages changed\n\n"
-    if package_summary:
-        packages_output += tabulate(
-            package_summary,
-            headers=["package", "base value", "value"],
-            tablefmt="github",
-        )
-    else:
-        packages_output += "No packages changed"
-    if GITHUB_ACTION:
-        packages_output += "\n\n"
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write(packages_output)
-    print_section("Packages changed summary", packages_output)
-
-    # Unreleased table
-    unreleased_output = "## Unreleased containers\n\n"
-    if unreleased_summary:
-        unreleased_output += tabulate(
-            unreleased_summary, headers=["container", "url"], tablefmt="github"
-        )
-    else:
-        unreleased_output += "No unreleased containers"
-    if GITHUB_ACTION:
-        unreleased_output += "\n\n"
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write(unreleased_output)
-    print_section("Unreleased containers summary", unreleased_output)
+    # Summary tables
+    build_output = build_summary_table(
+        "Container builds",
+        build_summary,
+        ["container", "base tag", "uri"],
+        "No containers to build",
+    )
+    packages_output = build_summary_table(
+        "Packages changed",
+        package_summary,
+        ["package", "base value", "value"],
+        "No packages changed",
+    )
+    unreleased_output = build_summary_table(
+        "Unreleased containers",
+        unreleased_summary,
+        ["container", "url"],
+        "No unreleased containers",
+    )
 
     # Do github output
     result = {f"uri-{k}": v for k, v in uris.items()}
@@ -800,14 +803,7 @@ def prepare_with_base(
         {f"changed-{k}": "1" if v else "" for k, v in changed.items()}
     )
     result.update({f"package-{k}": v for k, v in packages.items()})
-    output = []
-    for k, v in result.items():
-        value = f"{k}={v}"
-        output.append(value)
-        if GITHUB_ACTION:
-            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-                f.write(f"{value}\n")
-    print_section("Output", output)
+    write_outputs(result)
 
     return build_output + packages_output + unreleased_output
 
@@ -885,33 +881,18 @@ def action_prepare_release(args: argparse.Namespace):
     if missing_containers:
         sys.exit(1)
 
-    # Build summary table
-    build_output = "## Container releases\n\n"
-    if release_summary:
-        build_output += tabulate(
-            release_summary,
-            headers=["container", "main uri", "release uri"],
-            tablefmt="github",
-        )
-    else:
-        build_output += "No containers to release"
-    if GITHUB_ACTION:
-        build_output += "\n\n"
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-            f.write(build_output)
-    print_section("Container release summary", build_output)
+    # Summary table
+    build_summary_table(
+        "Container releases",
+        release_summary,
+        ["container", "main uri", "release uri"],
+        "No containers to release",
+    )
 
     # Do github output
     result = {f"from-{k}": v for k, v in release_from.items()}
     result.update({f"to-{k}": v for k, v in release_to.items()})
-    output = []
-    for k, v in result.items():
-        value = f"{k}={v}"
-        output.append(value)
-        if GITHUB_ACTION:
-            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-                f.write(f"{value}\n")
-    print_section("Output", output)
+    write_outputs(result)
 
 
 def post_action(
