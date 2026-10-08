@@ -72,6 +72,7 @@ runs:
         else
           echo "tags=${{ inputs.uri }}" >> $GITHUB_OUTPUT
         fi
+        echo "::endgroup::"
 
         echo "::group::Determine container name"
         container_name="${{ inputs.uri }}"
