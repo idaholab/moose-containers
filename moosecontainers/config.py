@@ -2,8 +2,14 @@
 
 import os
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-"""Root path to the repo."""
+REPO_ROOT = os.environ.get("MOOSECONTAINERS_REPO_ROOT") or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")
+)
+"""Root path to the repo.
+
+Set MOOSECONTAINERS_REPO_ROOT to read the configuration from another checkout,
+such as a pull request from a fork, while running this (trusted) package.
+"""
 
 ORG = "idaholab"
 """The GitHub organization."""

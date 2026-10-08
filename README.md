@@ -273,6 +273,26 @@ registry for this pull request or on `main`.
 The build cache is kept between runs of the same pull request. To clear it, add the
 `ci: delete cache` label to the pull request.
 
+#### Pull requests from forks
+
+A pull request from a fork gets a read-only token, so it can't push images or comment.
+It runs in two parts:
+
+1. `ruff`, `pytest`, and `generated` run as usual, once GitHub's
+   [approval for outside contributors](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
+   allows them.
+2. The build waits on the `fork-pr` job, which needs a maintainer's approval through
+   the `fork-pr` environment. Review the changes first, Dockerfiles and helper scripts
+   included, and then choose **Review deployments** on the run. Each push to the pull
+   request needs a new approval.
+
+The approved run uses `main`'s workflow, tooling, and build action. It takes only the
+pull request's `containers.yml`, `packages.yml`, and Docker contexts, and only from the
+commit that was approved. Changes a fork makes to `.github` or `moosecontainers` are
+tested in part 1 but aren't used to build. A fork can't contain symlinks. Its
+configuration values may only use characters that are safe in tags, paths, and build
+arguments.
+
 ### Main ([`build.yml`](.github/workflows/build.yml))
 
 After a merge, the changed containers are rebuilt and tagged as `main`. These are the

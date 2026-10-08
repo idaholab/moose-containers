@@ -1,8 +1,10 @@
 name: Delete images
 
 on:
-  # Delete a pull request's images and cache when it is closed
-  pull_request:
+  # Delete a pull request's images and cache when it is closed. On
+  # pull_request_target, so that this can delete them for forks too; it never
+  # checks out the pull request.
+  pull_request_target:
     types: [closed]
   workflow_dispatch:
     inputs:
@@ -39,7 +41,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           args=()
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" == "pull_request_target" ]; then
             args+=("delete_pr" "$PR")
           elif [ "$IMAGES" == "all-prs" ]; then
             args+=("delete_all_prs")
