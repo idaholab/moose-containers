@@ -293,6 +293,19 @@ tested in part 1 but aren't used to build. A fork can't contain symlinks. Its
 configuration values may only use characters that are safe in tags, paths, and build
 arguments.
 
+GitHub blocks `pull_request_target` in public repositories unless an Actions policy
+allows it. The repository's policy is kept in
+[`.github/policies/pull-request-target.json`](.github/policies/pull-request-target.json),
+and only allows it for `build.yml` and `delete-images.yml`. It's a repository setting,
+so editing the file changes nothing on its own; apply it with:
+
+```bash
+gh api -X PUT repos/idaholab/moose-containers/actions/policies/<id> \
+  --input .github/policies/pull-request-target.json
+```
+
+where `<id>` is from `gh api repos/idaholab/moose-containers/actions/policies`.
+
 ### Main ([`build.yml`](.github/workflows/build.yml))
 
 After a merge, the changed containers are rebuilt and tagged as `main`. These are the
