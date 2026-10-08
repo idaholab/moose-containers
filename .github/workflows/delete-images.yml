@@ -1,0 +1,57 @@
+name: Delete images
+
+on:
+  # Delete a pull request's images and cache when it is closed
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      images:
+        description: "Which staging images to delete"
+        required: true
+        type: choice
+        options:
+          - all-prs
+          - untagged
+      dry_run:
+        description: "Only list what would be deleted"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  delete:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Delete
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+          PR: ${{ github.event.pull_request.number }}
+          IMAGES: ${{ inputs.images }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            args+=("delete_pr" "$PR")
+          elif [ "$IMAGES" == "all-prs" ]; then
+            args+=("delete_all_prs")
+          elif [ "$IMAGES" == "untagged" ]; then
+            args+=("delete_untagged")
+          else
+            echo "::error::Unknown images input '$IMAGES'"
+            exit 1
+          fi
+          if [ "$DRY_RUN" == "true" ]; then
+            args+=("--dry-run")
+          fi
+          uv run --frozen python ./.github/scripts/ci.py \
+            "${args[@]}" \
+            --github-token "${{ github.token }}"

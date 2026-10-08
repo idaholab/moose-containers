@@ -12,43 +12,28 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ruff-check:
-    name: ruff-check
+  ruff:
+    name: ruff
     runs-on: ubuntu-slim
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
-
-  ruff-format:
-    name: ruff-format
-    runs-on: ubuntu-slim
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
       - name: Ruff format
+        # Report formatting problems even when the lint check fails
+        if: ${{ !cancelled() }}
         shell: bash
         run: uv run --frozen ruff format --check --diff
 
   delete-images:
     name: delete-images
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
@@ -57,11 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Delete
         shell: bash
         env:
@@ -76,7 +58,7 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     if: >
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
@@ -87,11 +69,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Delete
         shell: bash
         env:
@@ -106,29 +85,25 @@ jobs:
 
   readme:
     name: readme
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     runs-on: ubuntu-slim
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Check
         shell: bash
         run: uv run --frozen python ./.github/scripts/ci.py readme --check
 
   prepare:
     name: prepare
-    needs: [ruff-check, ruff-format, delete-images, delete-cache]
+    needs: [ruff, delete-images, delete-cache]
     if: >-
       always()
-      && needs.ruff-check.result == 'success'
-      && needs.ruff-format.result == 'success'
+      && needs.ruff.result == 'success'
       && needs.delete-images.result != 'failure'
       && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
@@ -198,11 +173,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Prepare
         id: prepare
         shell: bash
@@ -740,30 +712,31 @@ jobs:
       - mpi-ubuntu24-cuda-gcc
       - mpi-ubuntu24-gcc
       - mpi-ubuntu24-gccmin
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-oneapi.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky9-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-clang.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
+    # Always run, so that this required check fails rather than being
+    # skipped (which GitHub reports as success) when a build fails
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+      - name: Check jobs
+        # prepare is skipped (not failed) when its own dependencies fail,
+        # such as ruff, so it must have succeeded
+        if: >-
+          needs.prepare.result != 'success'
+          || contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+        shell: bash
+        run: |
+          echo "::error::A job that finalize depends on did not succeed"
+          exit 1
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
       - name: Check
         shell: bash
         run: |
