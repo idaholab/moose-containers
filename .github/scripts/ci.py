@@ -720,11 +720,6 @@ def prepare_with_base(
             build = True
 
         if build:
-            if (
-                base_container is not None
-                and base_container.date > container.date
-            ):
-                raise ContainersException(container.name, "date moved back")
             changed[name] = True
             summary_name = f"[`{container.name}`]({container.url})"
             build_summary.append(
