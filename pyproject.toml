@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Utilities for building MOOSE base containers"
 requires-python = ">=3.14"
 dependencies = [
-    "jinja2",
-    "pyyaml",
-    "tabulate",
-    "requests",
-    "ruff",
+    "jinja2==3.1.6",
+    "pyyaml==6.0.3",
+    "tabulate==0.10.0",
+    "requests==2.34.2",
+    "ruff==0.16.10",
 ]
 
 [tool.ruff]
