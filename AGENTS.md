@@ -14,12 +14,11 @@ See [README.md](README.md) for what this repository does.
      Update them along with `rocky8`/`rocky9` in `packages.yml`, or the build fails.
    - `VALGRIND_VERSION` is set in each compiler Dockerfile.
 
-3. **The workflows are written by hand.** They don't read `containers.yml` for you.
+3. **`build.yml` is written by hand.** It doesn't read `containers.yml` for you.
    - New container: in `build.yml`, add its `changed-*` and `uri-*` outputs to `prepare`,
      a build job, and an entry in `finalize`.
-   - New container with `release: true`: also add its `from-*`/`to-*` outputs, a job, and
-     a `finalize` entry in `release.yml`.
    - New package: add a `package-*` output to `prepare` in `build.yml`.
+   - `release.yml` needs no changes; it releases every `release: true` container.
 
 4. **The Docker build context is `docker/<layer>`.** `COPY` and `--mount` paths are
    relative to it, e.g. `files/install_mpich.bash` or `rocky8-oneapi/files/oneAPI.repo`.
