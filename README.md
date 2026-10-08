@@ -29,17 +29,6 @@ Two files control everything that gets built:
 GitHub Actions reads both files, works out which containers have changed, and builds
 only those.
 
-The build workflow has one job per container, so each container waits only for its own
-parent. That workflow, [`build.yml`](.github/workflows/build.yml), is generated from
-[`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
-After adding, removing or re-parenting a container, regenerate it:
-
-```bash
-uv run moosecontainers workflows
-```
-
-The pull request build fails if it is out of date.
-
 ### Versioning
 
 Each container's tag is made from its parents' versions, its own versions, and its date.
@@ -335,3 +324,9 @@ uv run pytest
 ```
 
 The tests mock every request to GitHub and require 100% coverage.
+
+The build workflow, [`build.yml`](.github/workflows/build.yml), has one job per
+container, so each container waits only for its own parent. It is generated from
+[`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
+After adding, removing or re-parenting a container, regenerate it with
+`uv run moosecontainers workflows`. The pull request build fails if it is out of date.
