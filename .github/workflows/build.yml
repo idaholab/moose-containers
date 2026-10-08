@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ruff-check:
-    name: ruff-check
+  ruff:
+    name: ruff
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -25,24 +25,15 @@ jobs:
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
-
-  ruff-format:
-    name: ruff-format
-    runs-on: ubuntu-slim
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
       - name: Ruff format
+        # Report formatting problems even when the lint check fails
+        if: ${{ !cancelled() }}
         shell: bash
         run: uv run --frozen ruff format --check --diff
 
   delete-images:
     name: delete-images
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
@@ -67,7 +58,7 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     if: >
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
@@ -94,7 +85,7 @@ jobs:
 
   readme:
     name: readme
-    needs: [ruff-check, ruff-format]
+    needs: [ruff]
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -109,11 +100,10 @@ jobs:
 
   prepare:
     name: prepare
-    needs: [ruff-check, ruff-format, delete-images, delete-cache]
+    needs: [ruff, delete-images, delete-cache]
     if: >-
       always()
-      && needs.ruff-check.result == 'success'
-      && needs.ruff-format.result == 'success'
+      && needs.ruff.result == 'success'
       && needs.delete-images.result != 'failure'
       && needs.delete-cache.result != 'failure'
     runs-on: ubuntu-slim
