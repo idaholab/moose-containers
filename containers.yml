@@ -1,23 +1,45 @@
 # moose-base
 base-rocky8:
+  dockerfile: rocky8
+  build-args:
+    ROCKY_VERSION: "{{ package("rocky8") }}"
+    ORAS_VERSION: "{{ package("oras") }}"
   tags:
     - "{{ package("rocky8") }}"
   date: "20260918"
   release: true
 base-rocky8-cuda:
+  dockerfile: rocky8-cuda
+  build-args:
+    CUDA_VERSION: "{{ package("cuda") }}"
+    ROCKY_VERSION: "{{ package("rocky8") }}"
+    ORAS_VERSION: "{{ package("oras") }}"
   tags:
     - "{{ package("rocky8") }}"
     - "cuda{{ package("cuda") }}"
   date: "20260918"
 base-rocky9:
+  dockerfile: rocky9
+  build-args:
+    ROCKY_VERSION: "{{ package("rocky9") }}"
+    ORAS_VERSION: "{{ package("oras") }}"
   tags:
     - "{{ package("rocky9") }}"
   date: "20260918"
 base-ubuntu24:
+  dockerfile: ubuntu24
+  build-args:
+    UBUNTU_VERSION: "{{ package("ubuntu24") }}"
+    ORAS_VERSION: "{{ package("oras") }}"
   tags:
     - "{{ package("ubuntu24") }}"
   date: "20260918"
 base-ubuntu24-cuda:
+  dockerfile: ubuntu24-cuda
+  build-args:
+    CUDA_VERSION: "{{ package("cuda") }}"
+    UBUNTU_VERSION: "{{ package("ubuntu24") }}"
+    ORAS_VERSION: "{{ package("oras") }}"
   tags:
     - "{{ package("ubuntu24") }}"
     - "cuda{{ package("cuda") }}"
@@ -26,37 +48,59 @@ base-ubuntu24-cuda:
 # moose-compiler
 compiler-rocky8-cuda-gcc:
   from: base-rocky8-cuda
+  dockerfile: rocky-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-rocky8") }}"
   tags:
     - "gcc{{ package("gcc-rocky8") }}"
   date: "20260918"
 compiler-rocky8-gcc:
   from: base-rocky8
+  dockerfile: rocky-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-rocky8") }}"
   tags:
     - "gcc{{ package("gcc-rocky8") }}"
   date: "20260918"
 compiler-rocky9-gcc:
   from: base-rocky9
+  dockerfile: rocky-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-rocky9") }}"
   tags:
     - "gcc{{ package("gcc-rocky9") }}"
   date: "20260918"
 compiler-ubuntu24-clang:
   from: base-ubuntu24
+  dockerfile: ubuntu-clang
+  build-args:
+    CLANG_VERSION: "{{ package("clang-ubuntu24") }}"
+    GCC_VERSION: "{{ package("gcc-ubuntu24-clang") }}"
   tags:
     - "clang{{ package("clang-ubuntu24") }}"
     - "gcc{{ package("gcc-ubuntu24-clang") }}"
   date: "20260918"
 compiler-ubuntu24-gcc:
   from: base-ubuntu24
+  dockerfile: ubuntu-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-ubuntu24") }}"
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
   date: "20260918"
 compiler-ubuntu24-gccmin:
   from: base-ubuntu24
+  dockerfile: ubuntu-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-min-ubuntu24") }}"
   tags:
     - "gcc{{ package("gcc-min-ubuntu24") }}"
   date: "20260918"
 compiler-ubuntu24-cuda-gcc:
   from: base-ubuntu24-cuda
+  dockerfile: ubuntu-gcc
+  build-args:
+    GCC_VERSION: "{{ package("gcc-ubuntu24") }}"
   tags:
     - "gcc{{ package("gcc-ubuntu24") }}"
   date: "20260918"
@@ -64,6 +108,11 @@ compiler-ubuntu24-cuda-gcc:
 # moose-mpi
 mpi-rocky8-cuda-gcc:
   from: compiler-rocky8-cuda-gcc
+  dockerfile: rocky-gcc
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
+    MPICH_ARGS: "--with-device=ch4:ucx"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -71,6 +120,10 @@ mpi-rocky8-cuda-gcc:
   date: "20260918"
 mpi-rocky8-gcc:
   from: compiler-rocky8-gcc
+  dockerfile: rocky-gcc
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -78,6 +131,10 @@ mpi-rocky8-gcc:
   date: "20260918"
 mpi-rocky8-oneapi:
   from: compiler-rocky8-gcc
+  dockerfile: rocky8-oneapi
+  build-args:
+    ONEAPI_VERSION: "{{ package("oneapi") }}"
+    MPICH_VERSION: "{{ package("mpich-rocky8-oneapi") }}"
   tags:
     - "oneapi{{ package("oneapi") }}"
     - "mpich{{ package("mpich-rocky8-oneapi") }}"
@@ -85,6 +142,10 @@ mpi-rocky8-oneapi:
   release: true
 mpi-rocky9-gcc:
   from: compiler-rocky9-gcc
+  dockerfile: rocky-gcc
+  build-args:
+    MPICH_VERSION: "{{ package("mpich-rocky9") }}"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich-rocky9") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -92,6 +153,10 @@ mpi-rocky9-gcc:
   date: "20260918"
 mpi-ubuntu24-cuda-gcc:
   from: compiler-ubuntu24-cuda-gcc
+  dockerfile: ubuntu
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -99,6 +164,10 @@ mpi-ubuntu24-cuda-gcc:
   date: "20260918"
 mpi-ubuntu24-clang:
   from: compiler-ubuntu24-clang
+  dockerfile: ubuntu
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -106,6 +175,10 @@ mpi-ubuntu24-clang:
   date: "20260918"
 mpi-ubuntu24-gcc:
   from: compiler-ubuntu24-gcc
+  dockerfile: ubuntu
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
+    OPENMPI_VERSION: "{{ package("openmpi") }}"
   tags:
     - "mpich{{ package("mpich") }}"
     - "openmpi{{ package("openmpi") }}"
@@ -113,6 +186,9 @@ mpi-ubuntu24-gcc:
   date: "20260918"
 mpi-ubuntu24-gccmin:
   from: compiler-ubuntu24-gccmin
+  dockerfile: ubuntu
+  build-args:
+    MPICH_VERSION: "{{ package("mpich") }}"
   tags:
     - "mpich{{ package("mpich") }}"
   release: true
