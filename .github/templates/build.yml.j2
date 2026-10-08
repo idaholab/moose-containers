@@ -1,0 +1,223 @@
+# Generated from .github/templates/build.yml.j2 by
+#
+#   uv run python .github/scripts/ci.py workflows
+#
+# Don't edit this file by hand; edit the template or containers.yml instead.
+
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ruff:
+    name: ruff
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Ruff check
+        shell: bash
+        run: uv run --frozen ruff check --output-format github
+      - name: Ruff format
+        # Report formatting problems even when the lint check fails
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: uv run --frozen ruff format --check --diff
+
+  delete-images:
+    name: delete-images
+    needs: [ruff]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Delete
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          uv run --frozen python ./.github/scripts/ci.py \
+            delete_pr \
+            "${{ github.event.pull_request.number }}" \
+            --only-images \
+            --allow-missing-repos \
+            --github-token ${{ github.token }}
+
+  delete-cache:
+    name: delete-cache
+    needs: [ruff]
+    if: >
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Delete
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          uv run --frozen python ./.github/scripts/ci.py \
+            delete_pr \
+            "${{ github.event.pull_request.number }}" \
+            --only-cache \
+            --allow-missing-repos \
+            --github-token ${{ github.token }}
+
+  generated:
+    name: generated
+    needs: [ruff]
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Check README
+        shell: bash
+        run: uv run --frozen python ./.github/scripts/ci.py readme --check
+      - name: Check workflows
+        # Report both, even when the README check fails
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: uv run --frozen python ./.github/scripts/ci.py workflows --check
+
+  prepare:
+    name: prepare
+    needs: [ruff, delete-images, delete-cache]
+    if: >-
+      always()
+      && needs.ruff.result == 'success'
+      && needs.delete-images.result != 'failure'
+      && needs.delete-cache.result != 'failure'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+    outputs:
+      containers: ${{ steps.prepare.outputs.containers }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Prepare
+        id: prepare
+        shell: bash
+        run: |
+          prepare_cmd=("uv" "run" "--frozen" "python" "./.github/scripts/ci.py")
+          prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            "${prepare_cmd[@]}" \
+              prepare_pr \
+              "${{ github.event.pull_request.number }}" \
+              "${{ github.event.pull_request.base.sha }}" \
+              "${prepare_args[@]}"
+          elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
+            "${prepare_cmd[@]}" \
+              prepare_push \
+              "${{ github.event.before }}" \
+              "${prepare_args[@]}"
+          fi
+[% for name, parent in containers %]
+
+  [[ name ]]:
+    name: "[[ name ]]"
+    needs: [prepare[% if parent %], [[ parent ]][% endif %]]
+    if: >-
+      !cancelled()
+      && needs.prepare.result == 'success'
+[% if parent %]
+      && contains(fromJSON('["success", "skipped"]'), needs.[[ parent ]].result)
+[% endif %]
+      && fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].changed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['[[ name ]]'].build_args }}
+[% endfor %]
+  finalize:
+    name: "finalize"
+    needs:
+      - prepare
+[% for name in leaves %]
+      - [[ name ]]
+[% endfor %]
+    # Always run, so that this required check fails rather than being
+    # skipped (which GitHub reports as success) when a build fails
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check jobs
+        # prepare is skipped (not failed) when its own dependencies fail,
+        # such as ruff, so it must have succeeded
+        if: >-
+          needs.prepare.result != 'success'
+          || contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+        shell: bash
+        run: |
+          echo "::error::A job that finalize depends on did not succeed"
+          exit 1
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Check
+        shell: bash
+        run: |
+          cmd_args=()
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            cmd_args+=("post_pr" "${{ github.event.pull_request.number }}")
+          elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
+            cmd_args+=("post_push")
+          fi
+          uv run --frozen python ./.github/scripts/ci.py \
+            "${cmd_args[@]}" \
+            --github-token "${{ secrets.GITHUB_TOKEN }}"

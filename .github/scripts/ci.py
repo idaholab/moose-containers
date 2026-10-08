@@ -58,6 +58,11 @@ README_START = "<!-- releases:start -->"
 README_END = "<!-- releases:end -->"
 """Marker for the end of the generated release table in the README."""
 
+WORKFLOWS = {
+    ".github/templates/build.yml.j2": ".github/workflows/build.yml",
+}
+"""Generated workflows (template -> output), relative to the repo root."""
+
 
 class ContainersException(Exception):
     """Exception for an error in the containers file."""
@@ -494,6 +499,18 @@ def parse_args():
     )
     add_common(delete_all_prs_parser, require_token=True, dry_run=True)
 
+    # workflows action
+    workflows_parser = action_parser.add_parser(
+        "workflows",
+        parents=[parent],
+        help="Generate the workflows from their templates.",
+    )
+    workflows_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Only check that the workflows are up to date.",
+    )
+
     # readme action
     readme_parser = action_parser.add_parser(
         "readme",
@@ -757,7 +774,6 @@ def prepare_with_base(
         ghcr_token = github_ghcr_token(github_token)
 
     # Determine changed containers
-    uris = {}
     changed = {}
     build_summary = []
     unreleased_summary = []
@@ -818,8 +834,6 @@ def prepare_with_base(
         else:
             changed[name] = False
 
-        uris[name] = container.uri
-
     # Determine changed packages
     package_summary = []
     for name in sorted(packages.keys() | base_packages.keys()):
@@ -854,13 +868,23 @@ def prepare_with_base(
         "No unreleased containers",
     )
 
+    # Everything a build job needs, for the generated build.yml jobs. Built
+    # after the loop so that each parent's URI (in BUILD_FROM) is final.
+    build_info = {
+        name: {
+            "changed": changed[name],
+            "uri": container.uri,
+            "context": container.context,
+            "file": container.file,
+            "build_args": "\n".join(
+                f"{k}={v}" for k, v in container.build_args.items()
+            ),
+        }
+        for name, container in current_containers.items()
+    }
+
     # Do github output
-    result = {f"uri-{k}": v for k, v in uris.items()}
-    result.update(
-        {f"changed-{k}": "1" if v else "" for k, v in changed.items()}
-    )
-    result.update({f"package-{k}": v for k, v in packages.items()})
-    write_outputs(result)
+    write_outputs({"containers": json.dumps(build_info, sort_keys=True)})
 
     return build_output + packages_output + unreleased_output
 
@@ -1179,6 +1203,90 @@ def action_readme(args: argparse.Namespace):
     with open(path, "w") as f:
         f.write(updated)
     print(f"Updated {README_FILE}")
+
+
+def render_workflow(template_path: str) -> str:
+    """Render a workflow template with the current containers.
+
+    The template uses [[ ]] and [% %] instead of jinja's default delimiters,
+    so that GitHub's own ${{ }} expressions can be written as is.
+    """
+    containers, _ = load_current()
+    parents = {
+        name: next(
+            k for k, v in containers.items() if v is container.from_container
+        )
+        if container.from_container is not None
+        else None
+        for name, container in containers.items()
+    }
+
+    # Order so that every parent comes before its children
+    ordered: list[str] = []
+    while len(ordered) < len(containers):
+        ready = [
+            name
+            for name in containers
+            if name not in ordered
+            and (parents[name] is None or parents[name] in ordered)
+        ]
+        if not ready:
+            raise ContainersException(
+                ", ".join(n for n in containers if n not in ordered),
+                "from containers form a cycle",
+            )
+        ordered.extend(ready)
+
+    # Containers that nothing is built from; finalize waits on these
+    leaves = [name for name in ordered if name not in parents.values()]
+
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(REPO_ROOT),
+        variable_start_string="[[",
+        variable_end_string="]]",
+        block_start_string="[%",
+        block_end_string="%]",
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=True,
+        undefined=jinja2.StrictUndefined,
+    )
+    template = env.get_template(template_path)
+    return template.render(
+        containers=[(name, parents[name]) for name in ordered], leaves=leaves
+    )
+
+
+def action_workflows(args: argparse.Namespace):
+    """Perform the workflows action."""
+    out_of_date = []
+    for template_path, workflow_path in WORKFLOWS.items():
+        rendered = render_workflow(template_path)
+        path = os.path.join(REPO_ROOT, workflow_path)
+        contents = None
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                contents = f.read()
+
+        if rendered == contents:
+            print(f"{workflow_path} is up to date")
+            continue
+
+        if args.check:
+            out_of_date.append(workflow_path)
+            continue
+
+        with open(path, "w") as f:
+            f.write(rendered)
+        print(f"Updated {workflow_path}")
+
+    if out_of_date:
+        print(
+            "ERROR: The following workflow(s) are out of date:\n\n  "
+            + "\n  ".join(out_of_date)
+            + "\n\nrun:\n\n  uv run python .github/scripts/ci.py workflows"
+        )
+        sys.exit(1)
 
 
 def main():
