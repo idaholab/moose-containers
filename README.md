@@ -115,6 +115,39 @@ script does not trigger a build by itself. A container gets rebuilt when you:
 Dates must be real dates (`YYYYMMDD`). They can't be in the future and can't move
 backward.
 
+## Updating a container
+
+Every change follows the same flow:
+
+1. Make the change (see below), then bump the `date` of each container that should be
+   rebuilt. A version change in `packages.yml` gives new tags on its own, so it needs no
+   date bump.
+2. Check locally which containers would build and which packages changed:
+
+   ```bash
+   uv run moosecontainers prepare_push origin/main
+   ```
+
+3. Open a pull request. Check the summary comment to confirm the right containers are
+   being rebuilt, and wait for the builds to pass.
+4. Merge the pull request. The `main` images are built.
+5. Run the **Release** workflow. Do a dry run first, then a real run to publish. See
+   [From pull request to release](#from-pull-request-to-release).
+
+What to change for common updates:
+
+| Update | Change |
+| --- | --- |
+| A package version (GCC, MPICH, CUDA, ...) | The version in `packages.yml` |
+| A Dockerfile or helper script | The files under `docker/<layer>`, plus the `date` of the containers that use them and of any containers built on them |
+| The Rocky Linux version | `rocky8`/`rocky9` in `packages.yml` **and** the pinned `FROM` line in `docker/base/rocky8` or `docker/base/rocky9`; the build fails if they don't match |
+| Valgrind | `VALGRIND_VERSION` in each compiler Dockerfile, plus the `date` of the compiler containers (and their children) |
+| A new container | An entry in `containers.yml` (see [containers.yml](#containersyml)), then regenerate the workflow with `uv run moosecontainers workflows` |
+| A new package | An entry in `packages.yml`, used in `containers.yml` with `{{ package("<name>") }}` |
+
+After changing `packages.yml` or `containers.yml`, regenerate the released images table
+with `uv run moosecontainers readme`. The pull request build fails if it is out of date.
+
 ## Containers
 
 The images come in three layers. Each layer builds on the one before it:
@@ -301,12 +334,3 @@ uv run pytest
 ```
 
 The tests mock every request to GitHub and require 100% coverage.
-
-## Updating a container
-
-1. Change the version in `packages.yml` and/or bump the `date` of the affected containers
-   in `containers.yml` (and of any containers built on them that should be rebuilt too).
-2. Open a pull request. Check the summary comment to confirm the right containers are
-   being rebuilt, and wait for the builds to pass.
-3. Merge the pull request. The `main` images are built.
-4. Run the **Release** workflow. Do a dry run first, then a real run to publish.
