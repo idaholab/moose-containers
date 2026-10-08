@@ -70,6 +70,25 @@ jobs:
             --allow-missing-repos \
             --github-token ${{ github.token }}
 
+  readme:
+    name: readme
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install python
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --frozen
+      - name: Check
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          python ./.github/scripts/ci.py readme --check
+
   prepare:
     name: prepare
     needs: [delete-images, delete-cache]
