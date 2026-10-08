@@ -46,6 +46,15 @@ GITHUB_API_URL = "https://api.github.com/"
 STAGING_PREFIX = "staging-"
 """The prefix used for images stored in a staging repo."""
 
+README_FILE = "README.md"
+"""The path to the README.md file, relative to the repo root."""
+
+README_START = "<!-- releases:start -->"
+"""Marker for the start of the generated release table in the README."""
+
+README_END = "<!-- releases:end -->"
+"""Marker for the end of the generated release table in the README."""
+
 
 class ContainersException(Exception):
     def __init__(self, name: str, message: str):
@@ -400,6 +409,18 @@ def parse_args():
         help="Delete all pull request images.",
     )
     add_common(delete_all_prs_parser, require_token=True, dry_run=True)
+
+    # readme action
+    readme_parser = action_parser.add_parser(
+        "readme",
+        parents=[parent],
+        help=f"Update the release table in {README_FILE}.",
+    )
+    readme_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Only check that the table is up to date.",
+    )
 
     return parser.parse_args()
 
@@ -997,6 +1018,57 @@ def action_delete_all_prs(args: argparse.Namespace):
         )
 
     delete_containers(condition, args.github_token, args.dry_run, False)
+
+
+def build_readme_releases() -> str:
+    """Build the markdown table of release containers for the README."""
+    containers, _ = load_current()
+
+    rows = []
+    for name in sorted(containers):
+        container = containers[name]
+        if not container.release:
+            continue
+        container.set_release_tag()
+        rows.append(
+            (
+                f"[`{container.name}`]({container.url})",
+                f"`{container.tag}`",
+            )
+        )
+
+    return tabulate(rows, headers=["container", "tag"], tablefmt="github")
+
+
+def action_readme(args: argparse.Namespace):
+    path = os.path.join(REPO_ROOT, README_FILE)
+    with open(path, "r") as f:
+        contents = f.read()
+
+    pattern = re.compile(
+        f"{re.escape(README_START)}.*?{re.escape(README_END)}", re.DOTALL
+    )
+    if pattern.search(contents) is None:
+        print(f"ERROR: {README_FILE} is missing {README_START} / {README_END}")
+        sys.exit(1)
+
+    block = f"{README_START}\n{build_readme_releases()}\n{README_END}"
+    updated = pattern.sub(lambda _: block, contents)
+
+    if updated == contents:
+        print(f"{README_FILE} is up to date")
+        return
+
+    if args.check:
+        print(
+            f"ERROR: {README_FILE} release table is out of date; run:\n\n"
+            "  uv run python .github/scripts/ci.py readme"
+        )
+        sys.exit(1)
+
+    with open(path, "w") as f:
+        f.write(updated)
+    print(f"Updated {README_FILE}")
 
 
 def main():

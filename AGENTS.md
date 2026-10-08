@@ -33,5 +33,9 @@ See [README.md](README.md) for what this repository does.
      would build and which packages changed. Without a token it skips registry checks.
    - `uv run ruff check` and `uv run ruff format` for Python.
 
-7. **Keep the README's example tag current.** If you change versions used by
-   `moose-mpi-ubuntu24-gcc`, update the example tag in `README.md`.
+7. **Keep the README current.**
+   - The "Released images" table is generated. After changing `packages.yml` or
+     `containers.yml`, run `uv run python .github/scripts/ci.py readme`. The PR build
+     fails if you forget.
+   - The example tag in the "Versioning" section is written by hand. If you change
+     versions used by `moose-mpi-ubuntu24-gcc`, update it too.
