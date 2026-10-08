@@ -19,11 +19,6 @@ inputs:
     description: URI for the container
     required: true
 
-outputs:
-  uri:
-    description: The URI of the built image
-    value: ${{ steps.get_uri.outcome.uri }}
-
 runs:
   using: composite
   steps:
