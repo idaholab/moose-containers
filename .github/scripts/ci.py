@@ -873,7 +873,6 @@ def action_prepare_release(args: argparse.Namespace):
             )
             missing_containers = True
 
-        release_from[name] = main_container.uri
         release_to[name] = container.uri
         release_summary.append(
             (
