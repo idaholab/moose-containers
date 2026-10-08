@@ -14,15 +14,24 @@
 [% set ready = "(github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')" %]
 [#
   A skipped job passes a required check, so the required jobs (prepare and
-  finalize) take another name in the run that skips them
+  finalize) take another name in the run that doesn't use them. GitHub only
+  evaluates the name of a job that runs, so these jobs are never skipped:
+  every step checks build_run instead, and in the other run they do nothing.
 #]
 [% macro required_name(name) %]${{ [[ build_run ]] && '[[ name ]]' || '[[ name ]] (not used)' }}[% endmacro %]
+[% macro not_used() %]
+      - name: Not used
+        if: ${{ !([[ build_run ]]) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
+[%- endmacro %]
 [% set uv_cache = "${{ github.event_name != 'pull_request_target' }}" %]
 [% set pr_root = "${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}" %]
+[% set fork_build = "github.event_name == 'pull_request_target' && " ~ build_run %]
 [% macro checkout_pr(fetch_depth=1) %]
       - name: Checkout pull request
         # As data only; see the top of this file
-        if: github.event_name == 'pull_request_target'
+        if: [[ fork_build ]]
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -35,7 +44,7 @@
       - name: Check pull request
         # A symlink could point the build at files outside of pr/, such as
         # the registry login
-        if: github.event_name == 'pull_request_target'
+        if: [[ fork_build ]]
         shell: bash
         run: |
           links=$(find pr -path pr/.git -prune -o -type l -print)
@@ -218,12 +227,8 @@ jobs:
   prepare:
     name: [[ required_name("prepare") ]]
     needs: [fork-pr, ruff, pytest, delete-images, delete-cache]
-    if: >-
-      always()
-      && [[ build_run ]]
-      && [[ ready ]]
-      && needs.delete-images.result != 'failure'
-      && needs.delete-cache.result != 'failure'
+    # Never skipped; see required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -232,17 +237,31 @@ jobs:
     outputs:
       containers: ${{ steps.prepare.outputs.containers }}
     steps:
+[[ not_used() ]]
+      - name: Check jobs
+        if: >-
+          [[ build_run ]]
+          && !([[ ready ]]
+            && needs.delete-images.result != 'failure'
+            && needs.delete-cache.result != 'failure')
+        shell: bash
+        run: |
+          echo "::error::A job that prepare depends on did not succeed"
+          exit 1
       - name: Checkout
+        if: [[ build_run ]]
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 [[ checkout_pr(0) ]]
       - name: Install uv
+        if: [[ build_run ]]
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Prepare
         id: prepare
+        if: [[ build_run ]]
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
@@ -269,6 +288,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
 [% if parent %]
       && contains(fromJSON('["success", "skipped"]'), needs.[[ parent ]].result)
 [% endif %]
@@ -301,32 +321,36 @@ jobs:
       - [[ name ]]
 [% endfor %]
     # Always run, so that this required check fails rather than being
-    # skipped (which GitHub reports as success) when a build fails
-    if: ${{ !cancelled() && [[ build_run ]] }}
+    # skipped (which GitHub reports as success) when a build fails; see
+    # required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+[[ not_used() ]]
       - name: Check jobs
-        # prepare is skipped (not failed) when its own dependencies fail,
-        # such as ruff or pytest, so it must have succeeded
         if: >-
-          needs.prepare.result != 'success'
-          || contains(needs.*.result, 'failure')
-          || contains(needs.*.result, 'cancelled')
+          [[ build_run ]]
+          && (needs.prepare.result != 'success'
+            || contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled'))
         shell: bash
         run: |
           echo "::error::A job that finalize depends on did not succeed"
           exit 1
       - name: Checkout
+        if: [[ build_run ]]
         uses: actions/checkout@v6
 [[ checkout_pr() ]]
       - name: Install uv
+        if: [[ build_run ]]
         uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Check
+        if: [[ build_run ]]
         shell: bash
         env:
           MOOSECONTAINERS_REPO_ROOT: [[ pr_root ]]
