@@ -17,13 +17,14 @@ Two files control everything that gets built:
 
 - **[`packages.yml`](packages.yml)** lists named software versions, such as operating
   system releases, CUDA, GCC, Clang, MPICH, OpenMPI, and Intel oneAPI. Each entry has a
-  name (for example `gcc-ubuntu24`) and a version.
+  name (for example `gcc-ubuntu24`) and a version. See [packages.yml](#packagesyml).
 - **[`containers.yml`](containers.yml)** lists every container that gets built. For each
   container it gives the container it builds on (`from`), its Dockerfile (`dockerfile`)
   and the arguments to build it with (`build-args`), the package versions that make up
   its tag (`tags`), a `date`, and whether the image is published as a release
   (`release`). It refers to versions by name from `packages.yml`, for example
   `{{ package("gcc-ubuntu24") }}`, so one version can be shared by many containers.
+  See [containers.yml](#containersyml).
 
 GitHub Actions reads both files, works out which containers have changed, and builds
 only those.
