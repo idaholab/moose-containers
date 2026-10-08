@@ -272,22 +272,22 @@ jobs:
       - mpi-ubuntu24-clang
       - mpi-ubuntu24-gcc
       - mpi-ubuntu24-gccmin
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-oneapi.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky9-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-clang.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
+    # Always run, so that this required check fails rather than being
+    # skipped (which GitHub reports as success) when a build fails
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+      - name: Check jobs
+        if: >-
+          contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+        shell: bash
+        run: |
+          echo "::error::A job that finalize depends on did not succeed"
+          exit 1
       - name: Checkout
         uses: actions/checkout@v6
         with:
