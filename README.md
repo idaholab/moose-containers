@@ -41,10 +41,7 @@ The pull request build fails if it is out of date.
 
 ### File format
 
-Both files are checked strictly when they are loaded. Values must have exactly the
-type listed below; for example, a version or date must be quoted (`"8.10"`, not
-`8.10`). Unknown keys are errors. Each error is reported with its location, such as
-`containers.yml:12:9: base-rocky8.date: ...`.
+Values must have exactly the type listed below, so versions and dates must be quoted.
 
 **`packages.yml`** maps a package name to its version:
 
