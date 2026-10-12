@@ -1,0 +1,26 @@
+{
+  "name": "Allow pull_request_target for fork builds",
+  "enforcement": "active",
+  "conditions": {
+    "workflow_path": {
+      "include": [
+        ".github/workflows/build.yml",
+        ".github/workflows/delete-images.yml"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "restrict_action_events",
+      "parameters": {
+        "allowed_events": [
+          "pull_request",
+          "pull_request_target",
+          "push",
+          "workflow_dispatch"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Python dependencies (pyproject.toml + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "loganharbour"
+    groups:
+      python:
+        patterns:
+          - "*"
+
+  # Actions used in workflows and in the local composite actions
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "loganharbour"
+    groups:
+      actions:
+        patterns:
+          - "*"

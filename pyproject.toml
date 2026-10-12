@@ -4,9 +4,46 @@ version = "0.1.0"
 description = "Utilities for building MOOSE base containers"
 requires-python = ">=3.14"
 dependencies = [
-    "jinja2",
-    "pyyaml",
-    "tabulate",
-    "requests",
-    "ruff",
+    "jinja2==3.1.6",
+    "pyyaml==6.0.3",
+    "tabulate==0.10.0",
+    "requests==2.34.2",
+    "ruff==0.16.10",
+    "pydantic==2.14.0",
+]
+
+[project.scripts]
+moosecontainers = "moosecontainers.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.19"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "moosecontainers"
+module-root = ""
+
+[tool.ruff]
+line-length = 80
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "N801", "SIM", "TID"]
+ignore = ["D203", "D213"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "responses==0.26.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--import-mode=importlib",
+    "--cov=moosecontainers",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-fail-under=100",
 ]

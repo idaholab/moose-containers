@@ -1,20 +1,124 @@
+# Generated from .github/templates/build.yml.j2 by
+#
+#   uv run moosecontainers workflows
+#
+# Don't edit this file by hand; edit the template or containers.yml instead.
+
+# Pull requests from this repository work as pushes do, on pull_request.
+#
+# Pull requests from forks get a read only token on pull_request, so that run
+# only lints and tests. Their images are built on pull_request_target, which
+# can push images and comment, but only once a maintainer approves the run in
+# the fork-pr environment. That run uses the base branch's tools, workflow and
+# build action; the pull request is checked out into pr/ only as data: its
+# containers.yml, packages.yml and Docker contexts. None of its code runs with
+# a write token, or can write to the cache that main uses.
+#
+# Both pull request events fire for every pull request; each job checks which
+# run it is in, and is skipped in the other run.
+
 name: Build
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, labeled]
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Keyed on the event, so that the run for one pull request event doesn't
+  # cancel the run for the other
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
+  fork-pr:
+    name: fork-pr
+    # Waits for a maintainer to approve building a fork's pull request
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+    environment: fork-pr
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Approved
+        shell: bash
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: echo "Approved building ${HEAD_SHA} from ${HEAD_REPO}"
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Check pull request
+        # A symlink could point the build at files outside of pr/, such as
+        # the registry login. Checked once here: every job that uses pr/
+        # waits on this one, and checks out the same commit.
+        shell: bash
+        run: |
+          links=$(find pr -path pr/.git -prune -o -type l -print)
+          if [ -n "$links" ]; then
+            echo "::error::Pull requests from forks can't contain symlinks:"
+            echo "$links"
+            exit 1
+          fi
+
+  ruff:
+    name: ruff
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Ruff check
+        shell: bash
+        run: uv run --frozen ruff check --output-format github
+      - name: Ruff format
+        # Report formatting problems even when the lint check fails
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: uv run --frozen ruff format --check --diff
+
+  pytest:
+    name: pytest
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Test
+        shell: bash
+        run: uv run --frozen pytest
+
   delete-images:
     name: delete-images
-    if: github.event_name == 'pull_request'
+    needs: [fork-pr, ruff, pytest]
+    if: >-
+      always()
+      && github.event_name != 'push'
+      && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+      && (github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -22,18 +126,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
+          MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-images \
@@ -42,9 +157,13 @@ jobs:
 
   delete-cache:
     name: delete-cache
-    if: >
-      github.event_name == 'pull_request' &&
-      contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
+    needs: [fork-pr, ruff, pytest]
+    if: >-
+      always()
+      && github.event_name != 'push'
+      && (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+      && (github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')
+      && contains(github.event.pull_request.labels.*.name, 'ci: delete cache')
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -52,109 +171,115 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Delete
         shell: bash
         env:
           PYTHONUNBUFFERED: 1
+          MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
         run: |
-          source .venv/bin/activate
-          python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             delete_pr \
             "${{ github.event.pull_request.number }}" \
             --only-cache \
             --allow-missing-repos \
             --github-token ${{ github.token }}
 
+  generated:
+    name: generated
+    needs: [ruff, pytest]
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Check README
+        shell: bash
+        run: uv run --frozen moosecontainers readme --check
+      - name: Check workflows
+        # Report both, even when the README check fails
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: uv run --frozen moosecontainers workflows --check
+
   prepare:
-    name: prepare
-    needs: [delete-images, delete-cache]
-    if: always() && needs.delete-images.result != 'failure' && needs.delete-cache.result != 'failure'
+    name: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository)) && 'prepare' || 'prepare (not used)' }}
+    needs: [fork-pr, ruff, pytest, delete-images, delete-cache]
+    # Never skipped; see required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
       pull-requests: write
     outputs:
-      changed-base-rocky8: ${{ steps.prepare.outputs.changed-base-rocky8 }}
-      changed-base-rocky9: ${{ steps.prepare.outputs.changed-base-rocky9 }}
-      changed-base-rocky8-cuda: ${{ steps.prepare.outputs.changed-base-rocky8-cuda }}
-      changed-base-ubuntu24: ${{ steps.prepare.outputs.changed-base-ubuntu24 }}
-      changed-base-ubuntu24-cuda: ${{ steps.prepare.outputs.changed-base-ubuntu24-cuda }}
-      changed-compiler-rocky8-cuda-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky8-cuda-gcc }}
-      changed-compiler-rocky8-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky8-gcc }}
-      changed-compiler-rocky9-gcc: ${{ steps.prepare.outputs.changed-compiler-rocky9-gcc }}
-      changed-compiler-ubuntu24-clang: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-clang }}
-      changed-compiler-ubuntu24-gcc: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-gcc }}
-      changed-compiler-ubuntu24-gccmin: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-gccmin }}
-      changed-compiler-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.changed-compiler-ubuntu24-cuda-gcc }}
-      changed-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky8-cuda-gcc }}
-      changed-mpi-rocky8-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky8-gcc }}
-      changed-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.changed-mpi-rocky8-oneapi }}
-      changed-mpi-rocky9-gcc: ${{ steps.prepare.outputs.changed-mpi-rocky9-gcc }}
-      changed-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-clang }}
-      changed-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-cuda-gcc }}
-      changed-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-gcc }}
-      changed-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.changed-mpi-ubuntu24-gccmin }}
-      uri-base-rocky8: ${{ steps.prepare.outputs.uri-base-rocky8 }}
-      uri-base-rocky9: ${{ steps.prepare.outputs.uri-base-rocky9 }}
-      uri-base-rocky8-cuda: ${{ steps.prepare.outputs.uri-base-rocky8-cuda }}
-      uri-base-ubuntu24: ${{ steps.prepare.outputs.uri-base-ubuntu24 }}
-      uri-base-ubuntu24-cuda: ${{ steps.prepare.outputs.uri-base-ubuntu24-cuda }}
-      uri-compiler-rocky8-cuda-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky8-cuda-gcc }}
-      uri-compiler-rocky8-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky8-gcc }}
-      uri-compiler-rocky9-gcc: ${{ steps.prepare.outputs.uri-compiler-rocky9-gcc }}
-      uri-compiler-ubuntu24-clang: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-clang }}
-      uri-compiler-ubuntu24-gcc: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-gcc }}
-      uri-compiler-ubuntu24-gccmin: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-gccmin }}
-      uri-compiler-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.uri-compiler-ubuntu24-cuda-gcc }}
-      uri-mpi-rocky8-cuda-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky8-cuda-gcc }}
-      uri-mpi-rocky8-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky8-gcc }}
-      uri-mpi-rocky8-oneapi: ${{ steps.prepare.outputs.uri-mpi-rocky8-oneapi }}
-      uri-mpi-rocky9-gcc: ${{ steps.prepare.outputs.uri-mpi-rocky9-gcc }}
-      uri-mpi-ubuntu24-clang: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-clang }}
-      uri-mpi-ubuntu24-cuda-gcc: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-cuda-gcc }}
-      uri-mpi-ubuntu24-gcc: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-gcc }}
-      uri-mpi-ubuntu24-gccmin: ${{ steps.prepare.outputs.uri-mpi-ubuntu24-gccmin }}
-      package-clang-ubuntu24: ${{ steps.prepare.outputs.package-clang-ubuntu24 }}
-      package-cuda: ${{ steps.prepare.outputs.package-cuda }}
-      package-gcc-rocky8: ${{ steps.prepare.outputs.package-gcc-rocky8 }}
-      package-gcc-rocky9: ${{ steps.prepare.outputs.package-gcc-rocky9 }}
-      package-gcc-min-ubuntu24: ${{ steps.prepare.outputs.package-gcc-min-ubuntu24 }}
-      package-gcc-ubuntu24: ${{ steps.prepare.outputs.package-gcc-ubuntu24 }}
-      package-gcc-ubuntu24-clang: ${{ steps.prepare.outputs.package-gcc-ubuntu24-clang }}
-      package-mpich: ${{ steps.prepare.outputs.package-mpich }}
-      package-mpich-rocky8-oneapi: ${{ steps.prepare.outputs.package-mpich-rocky8-oneapi }}
-      package-mpich-rocky9: ${{ steps.prepare.outputs.package-mpich-rocky9 }}
-      package-oneapi: ${{ steps.prepare.outputs.package-oneapi }}
-      package-openmpi: ${{ steps.prepare.outputs.package-openmpi }}
-      package-oras: ${{ steps.prepare.outputs.package-oras }}
-      package-rocky8: ${{ steps.prepare.outputs.package-rocky8 }}
-      package-rocky9: ${{ steps.prepare.outputs.package-rocky9 }}
-      package-ubuntu24: ${{ steps.prepare.outputs.package-ubuntu24 }}
+      containers: ${{ steps.prepare.outputs.containers }}
     steps:
+      - name: Not used
+        if: ${{ !((github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
+      - name: Check jobs
+        if: >-
+          (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+          && !((github.event_name == 'pull_request_target' && needs.fork-pr.result == 'success' || github.event_name != 'pull_request_target' && needs.ruff.result == 'success' && needs.pytest.result == 'success')
+            && needs.delete-images.result != 'failure'
+            && needs.delete-cache.result != 'failure')
+        shell: bash
+        run: |
+          echo "::error::A job that prepare depends on did not succeed"
+          exit 1
       - name: Checkout
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 0
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Install uv
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Prepare
         id: prepare
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         shell: bash
+        env:
+          MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
         run: |
-          source .venv/bin/activate
-
-          prepare_cmd=("python" "./.github/scripts/ci.py")
+          prepare_cmd=("uv" "run" "--frozen" "moosecontainers")
           prepare_args=("--github-token" "${{ secrets.GITHUB_TOKEN }}")
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
             "${prepare_cmd[@]}" \
               prepare_pr \
               "${{ github.event.pull_request.number }}" \
@@ -172,7 +297,9 @@ jobs:
     needs: [prepare]
     if: >-
       !cancelled()
-      && needs.prepare.outputs.changed-base-rocky8
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && fromJSON(needs.prepare.outputs.containers)['base-rocky8'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -180,23 +307,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/base
-          file: docker/base/rocky8/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-base-rocky8 }}
-          build-args: |
-            ROCKY_VERSION=${{ needs.prepare.outputs.package-rocky8 }}
-            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8'].build_args }}
 
   base-rocky8-cuda:
     name: "base-rocky8-cuda"
     needs: [prepare]
     if: >-
       !cancelled()
-      && needs.prepare.outputs.changed-base-rocky8-cuda
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -204,24 +346,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/base
-          file: docker/base/rocky8-cuda/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-base-rocky8-cuda }}
-          build-args: |
-            CUDA_VERSION=${{ needs.prepare.outputs.package-cuda }}
-            ROCKY_VERSION=${{ needs.prepare.outputs.package-rocky8 }}
-            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky8-cuda'].build_args }}
 
   base-rocky9:
     name: "base-rocky9"
     needs: [prepare]
     if: >-
       !cancelled()
-      && needs.prepare.outputs.changed-base-rocky9
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && fromJSON(needs.prepare.outputs.containers)['base-rocky9'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -229,23 +385,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/base
-          file: docker/base/rocky9/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-base-rocky9 }}
-          build-args: |
-            ROCKY_VERSION=${{ needs.prepare.outputs.package-rocky9 }}
-            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky9'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky9'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky9'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['base-rocky9'].build_args }}
 
   base-ubuntu24:
     name: "base-ubuntu24"
     needs: [prepare]
     if: >-
       !cancelled()
-      && needs.prepare.outputs.changed-base-ubuntu24
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -253,23 +424,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/base
-          file: docker/base/ubuntu24/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-base-ubuntu24 }}
-          build-args: |
-            UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
-            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24'].build_args }}
 
   base-ubuntu24-cuda:
     name: "base-ubuntu24-cuda"
     needs: [prepare]
     if: >-
       !cancelled()
-      && needs.prepare.outputs.changed-base-ubuntu24-cuda
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -277,50 +463,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Build
-        uses: ./.github/actions/build
         with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/base
-          file: docker/base/ubuntu24-cuda/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-base-ubuntu24-cuda }}
-          build-args: |
-            CUDA_VERSION=${{ needs.prepare.outputs.package-cuda }}
-            UBUNTU_VERSION=${{ needs.prepare.outputs.package-ubuntu24 }}
-            ORAS_VERSION=${{ needs.prepare.outputs.package-oras }}
-
-  compiler-rocky8-gcc:
-    name: "compiler-rocky8-gcc"
-    needs: [prepare, base-rocky8]
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8.result)
-      && needs.prepare.outputs.changed-compiler-rocky8-gcc
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-rocky8-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-rocky8 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-rocky8 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['base-ubuntu24-cuda'].build_args }}
 
   compiler-rocky8-cuda-gcc:
     name: "compiler-rocky8-cuda-gcc"
     needs: [prepare, base-rocky8-cuda]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8-cuda.result)
-      && needs.prepare.outputs.changed-compiler-rocky8-cuda-gcc
+      && fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -328,24 +503,79 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-rocky8-cuda-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-rocky8-cuda }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-rocky8 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-cuda-gcc'].build_args }}
+
+  compiler-rocky8-gcc:
+    name: "compiler-rocky8-gcc"
+    needs: [prepare, base-rocky8]
+    if: >-
+      !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && contains(fromJSON('["success", "skipped"]'), needs.base-rocky8.result)
+      && fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].changed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky8-gcc'].build_args }}
 
   compiler-rocky9-gcc:
     name: "compiler-rocky9-gcc"
     needs: [prepare, base-rocky9]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-rocky9.result)
-      && needs.prepare.outputs.changed-compiler-rocky9-gcc
+      && fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -353,100 +583,159 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-rocky9-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-rocky9 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-rocky9 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-rocky9-gcc'].build_args }}
 
   compiler-ubuntu24-clang:
     name: "compiler-ubuntu24-clang"
     needs: [prepare, base-ubuntu24]
-    runs-on: ubuntu-24.04
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
-      && needs.prepare.outputs.changed-compiler-ubuntu24-clang
+      && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].changed
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/ubuntu-clang/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-ubuntu24-clang }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-ubuntu24 }}
-            CLANG_VERSION=${{ needs.prepare.outputs.package-clang-ubuntu24 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24-clang }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-clang'].build_args }}
 
   compiler-ubuntu24-gcc:
     name: "compiler-ubuntu24-gcc"
     needs: [prepare, base-ubuntu24]
-    runs-on: ubuntu-24.04
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
-      && needs.prepare.outputs.changed-compiler-ubuntu24-gcc
+      && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].changed
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/ubuntu-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-ubuntu24-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-ubuntu24 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gcc'].build_args }}
 
   compiler-ubuntu24-gccmin:
     name: "compiler-ubuntu24-gccmin"
     needs: [prepare, base-ubuntu24]
-    runs-on: ubuntu-24.04
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24.result)
-      && needs.prepare.outputs.changed-compiler-ubuntu24-gccmin
+      && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].changed
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/ubuntu-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-ubuntu24-gccmin }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-ubuntu24 }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-min-ubuntu24 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-gccmin'].build_args }}
 
   compiler-ubuntu24-cuda-gcc:
     name: "compiler-ubuntu24-cuda-gcc"
     needs: [prepare, base-ubuntu24-cuda]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.base-ubuntu24-cuda.result)
-      && needs.prepare.outputs.changed-compiler-ubuntu24-cuda-gcc
+      && fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -454,24 +743,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/compiler
-          file: docker/compiler/ubuntu-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-compiler-ubuntu24-cuda-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-base-ubuntu24-cuda }}
-            GCC_VERSION=${{ needs.prepare.outputs.package-gcc-ubuntu24 }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['compiler-ubuntu24-cuda-gcc'].build_args }}
 
   mpi-rocky8-cuda-gcc:
     name: "mpi-rocky8-cuda-gcc"
     needs: [prepare, compiler-rocky8-cuda-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-cuda-gcc.result)
-      && needs.prepare.outputs.changed-mpi-rocky8-cuda-gcc
+      && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -479,26 +783,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-rocky8-cuda-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-rocky8-cuda-gcc }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-            MPICH_ARGS="--with-device=ch4:ucx"
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-cuda-gcc'].build_args }}
 
   mpi-rocky8-gcc:
     name: "mpi-rocky8-gcc"
     needs: [prepare, compiler-rocky8-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-gcc.result)
-      && needs.prepare.outputs.changed-mpi-rocky8-gcc
+      && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -506,25 +823,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-rocky8-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-rocky8-gcc }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-gcc'].build_args }}
 
   mpi-rocky8-oneapi:
     name: "mpi-rocky8-oneapi"
     needs: [prepare, compiler-rocky8-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky8-gcc.result)
-      && needs.prepare.outputs.changed-mpi-rocky8-oneapi
+      && fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -532,25 +863,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/rocky8-oneapi/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-rocky8-oneapi }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-rocky8-gcc }}
-            ONEAPI_VERSION=${{ needs.prepare.outputs.package-oneapi }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich-rocky8-oneapi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky8-oneapi'].build_args }}
 
   mpi-rocky9-gcc:
     name: "mpi-rocky9-gcc"
     needs: [prepare, compiler-rocky9-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-rocky9-gcc.result)
-      && needs.prepare.outputs.changed-mpi-rocky9-gcc
+      && fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -558,51 +903,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Build
-        uses: ./.github/actions/build
         with:
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/rocky-gcc/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-rocky9-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-rocky9-gcc }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich-rocky9 }}
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
-
-  mpi-ubuntu24-clang:
-    name: "mpi-ubuntu24-clang"
-    needs: [prepare, compiler-ubuntu24-clang]
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-clang.result)
-      && needs.prepare.outputs.changed-mpi-ubuntu24-clang
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/ubuntu/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-ubuntu24-clang }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-ubuntu24-clang }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-rocky9-gcc'].build_args }}
 
   mpi-ubuntu24-cuda-gcc:
     name: "mpi-ubuntu24-cuda-gcc"
     needs: [prepare, compiler-ubuntu24-cuda-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-cuda-gcc.result)
-      && needs.prepare.outputs.changed-mpi-ubuntu24-cuda-gcc
+      && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -610,25 +943,79 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/ubuntu/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-ubuntu24-cuda-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-ubuntu24-cuda-gcc }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-cuda-gcc'].build_args }}
+
+  mpi-ubuntu24-clang:
+    name: "mpi-ubuntu24-clang"
+    needs: [prepare, compiler-ubuntu24-clang]
+    if: >-
+      !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
+      && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-clang.result)
+      && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].changed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-clang'].build_args }}
 
   mpi-ubuntu24-gcc:
     name: "mpi-ubuntu24-gcc"
     needs: [prepare, compiler-ubuntu24-gcc]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-gcc.result)
-      && needs.prepare.outputs.changed-mpi-ubuntu24-gcc
+      && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -636,25 +1023,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/ubuntu/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-ubuntu24-gcc }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-ubuntu24-gcc }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-            OPENMPI_VERSION=${{ needs.prepare.outputs.package-openmpi }}
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gcc'].build_args }}
 
   mpi-ubuntu24-gccmin:
     name: "mpi-ubuntu24-gccmin"
     needs: [prepare, compiler-ubuntu24-gccmin]
     if: >-
       !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.containers != ''
       && contains(fromJSON('["success", "skipped"]'), needs.compiler-ubuntu24-gccmin.result)
-      && needs.prepare.outputs.changed-mpi-ubuntu24-gccmin
+      && fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].changed
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -662,64 +1063,96 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
       - name: Build
         uses: ./.github/actions/build
         with:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          context: docker/mpi
-          file: docker/mpi/ubuntu/Dockerfile
-          uri: ${{ needs.prepare.outputs.uri-mpi-ubuntu24-gccmin }}
-          build-args: |
-            BUILD_FROM=${{ needs.prepare.outputs.uri-compiler-ubuntu24-gccmin }}
-            MPICH_VERSION=${{ needs.prepare.outputs.package-mpich }}
-
+          root: ${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}
+          context: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].context }}
+          file: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].file }}
+          uri: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].uri }}
+          build-args: ${{ fromJSON(needs.prepare.outputs.containers)['mpi-ubuntu24-gccmin'].build_args }}
   finalize:
-    name: "finalize"
+    name: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository)) && 'finalize' || 'finalize (not used)' }}
     needs:
       - prepare
       - mpi-rocky8-cuda-gcc
       - mpi-rocky8-gcc
       - mpi-rocky8-oneapi
       - mpi-rocky9-gcc
-      - mpi-ubuntu24-clang
       - mpi-ubuntu24-cuda-gcc
+      - mpi-ubuntu24-clang
       - mpi-ubuntu24-gcc
       - mpi-ubuntu24-gccmin
-    if: >-
-      !cancelled()
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky8-oneapi.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-rocky9-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-clang.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-cuda-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gcc.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.mpi-ubuntu24-gccmin.result)
+    # Always run, so that this required check fails rather than being
+    # skipped (which GitHub reports as success) when a build fails; see
+    # required_name at the top of this file
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
       packages: read
     steps:
+      - name: Not used
+        if: ${{ !((github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))) }}
+        shell: bash
+        run: echo "This job only does work in the other run for this event"
+      - name: Check jobs
+        if: >-
+          (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+          && (needs.prepare.result != 'success'
+            || contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled'))
+        shell: bash
+        run: |
+          echo "::error::A job that finalize depends on did not succeed"
+          exit 1
       - name: Checkout
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        uses: actions/checkout@v6
+      - name: Checkout pull request
+        # As data only; see the top of this file
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
-      - name: Install python
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv sync --frozen
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+          fetch-depth: 1
+          # Required to check out a fork on pull_request_target. Safe here,
+          # as nothing from pr/ is run on the runner
+          allow-unsafe-pr-checkout: true
+      - name: Install uv
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Check
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
         shell: bash
+        env:
+          MOOSECONTAINERS_REPO_ROOT: ${{ github.event_name == 'pull_request_target' && format('{0}/pr', github.workspace) || '' }}
         run: |
-          source .venv/bin/activate
-
           cmd_args=()
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
             cmd_args+=("post_pr" "${{ github.event.pull_request.number }}")
           elif [ "$GITHUB_EVENT_NAME" == "push" ]; then
             cmd_args+=("post_push")
           fi
-          python ./.github/scripts/ci.py \
+          uv run --frozen moosecontainers \
             "${cmd_args[@]}" \
             --github-token "${{ secrets.GITHUB_TOKEN }}"
