@@ -35,7 +35,7 @@
       - name: Checkout pull request
         # As data only; see the top of this file
         if: [[ fork_build ]]
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
@@ -114,9 +114,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
@@ -134,9 +134,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
       - name: Test
         shell: bash
         run: uv run --frozen pytest
@@ -155,10 +155,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 [[ checkout_pr() ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Delete
@@ -189,10 +189,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 [[ checkout_pr() ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Delete
@@ -217,9 +217,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
       - name: Check README
         shell: bash
         run: uv run --frozen moosecontainers readme --check
@@ -255,13 +255,13 @@ jobs:
           exit 1
       - name: Checkout
         if: [[ build_run ]]
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 [[ checkout_pr(0) ]]
       - name: Install uv
         if: [[ build_run ]]
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Prepare
@@ -304,7 +304,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 [[ checkout_pr() ]]
@@ -347,11 +347,11 @@ jobs:
           exit 1
       - name: Checkout
         if: [[ build_run ]]
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 [[ checkout_pr() ]]
       - name: Install uv
         if: [[ build_run ]]
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: [[ uv_cache ]]
       - name: Check
