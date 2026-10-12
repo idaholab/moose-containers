@@ -94,7 +94,7 @@ runs:
         username: ${{ github.repository_owner }}
         password: ${{ inputs.registry-token }}
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
         driver: docker-container
     - name: Build and push
