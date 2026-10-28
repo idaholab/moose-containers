@@ -49,5 +49,10 @@ WORKFLOWS = {
 }
 """Generated workflows (template -> output), relative to the repo root."""
 
+ACTION_SOURCES = [".github/workflows/*.yml", ".github/actions/*/action.yml"]
+"""Globs (relative to the repo root) of the files that the workflow templates
+take their action versions from, so that Dependabot's updates to them carry
+over. The generated workflows are skipped."""
+
 COMMAND = "uv run moosecontainers"
 """The command for running these utilities, used in hints."""

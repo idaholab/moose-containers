@@ -3,6 +3,11 @@
 #   uv run moosecontainers workflows
 #
 # Don't edit this file by hand; edit the template or containers.yml instead.
+[#
+  action("owner/name") is the action at the version used in the other
+  workflows and actions (see ACTION_SOURCES in config.py), which Dependabot
+  keeps up to date
+#]
 
 [% set fork = "github.event.pull_request.head.repo.full_name != github.repository" %]
 [% set lint_run = "github.event_name != 'pull_request_target'" %]
@@ -35,7 +40,7 @@
       - name: Checkout pull request
         # As data only; see the top of this file
         if: [[ fork_build ]]
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
@@ -114,9 +119,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
@@ -134,9 +139,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
       - name: Test
         shell: bash
         run: uv run --frozen pytest
@@ -155,10 +160,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
 [[ checkout_pr() ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
         with:
           enable-cache: [[ uv_cache ]]
       - name: Delete
@@ -189,10 +194,10 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
 [[ checkout_pr() ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
         with:
           enable-cache: [[ uv_cache ]]
       - name: Delete
@@ -217,9 +222,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
       - name: Check README
         shell: bash
         run: uv run --frozen moosecontainers readme --check
@@ -255,13 +260,13 @@ jobs:
           exit 1
       - name: Checkout
         if: [[ build_run ]]
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
         with:
           fetch-depth: 0
 [[ checkout_pr(0) ]]
       - name: Install uv
         if: [[ build_run ]]
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
         with:
           enable-cache: [[ uv_cache ]]
       - name: Prepare
@@ -304,7 +309,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
         with:
           persist-credentials: false
 [[ checkout_pr() ]]
@@ -347,11 +352,11 @@ jobs:
           exit 1
       - name: Checkout
         if: [[ build_run ]]
-        uses: actions/checkout@v7
+        uses: [[ action("actions/checkout") ]]
 [[ checkout_pr() ]]
       - name: Install uv
         if: [[ build_run ]]
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: [[ action("astral-sh/setup-uv") ]]
         with:
           enable-cache: [[ uv_cache ]]
       - name: Check
