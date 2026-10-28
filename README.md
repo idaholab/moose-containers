@@ -355,7 +355,8 @@ container, so each container waits only for its own parent. It is generated from
 [`.github/templates/build.yml.j2`](.github/templates/build.yml.j2) and `containers.yml`.
 After adding, removing or re-parenting a container, regenerate it with
 `uv run moosecontainers workflows`. The pull request build fails if it is out of date.
-The template doesn't pin action versions itself: `action("owner/name")` takes the
-version used in the other workflows and in `.github/actions`, which Dependabot updates.
-Every file must use the same version of an action, and the template can only use
-actions that one of them uses too.
+Actions are pinned to a commit SHA, with their version as a comment
+(`owner/name@<sha> # v1.2.3`), and Dependabot updates both. The template doesn't pin
+action versions itself: `action("owner/name")` takes the SHA and version comment used
+in the other workflows and in `.github/actions`. Every file must use the same version
+of an action, and the template can only use actions that one of them uses too.

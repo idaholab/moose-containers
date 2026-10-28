@@ -12,7 +12,9 @@ updates:
         patterns:
           - "*"
 
-  # Actions used in workflows and in the local composite actions
+  # Actions used in workflows and in the local composite actions. They are
+  # pinned to a commit SHA with the version as a comment, "@<sha> # v1.2.3",
+  # and Dependabot keeps that form, updating both the SHA and the comment.
   - package-ecosystem: "github-actions"
     directories:
       - "/"
