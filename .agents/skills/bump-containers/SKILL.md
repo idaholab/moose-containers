@@ -59,30 +59,44 @@ If you find any, list them for the user with where each one is set. Ask how to
 look up its latest version, and whether to update it. Don't guess a source.
 Once the user answers, offer to add a row to the table in this skill.
 
-### What to change without asking, and what to ask about
+### Which updates to recommend
 
 The compiler and package tags must match what the distribution actually
 installs. The Dockerfiles `grep` the installed version and fail if it differs.
 
-- **Update without asking:** patch and minor releases of `mpich`, `openmpi`,
-  `oras`, `oneapi`, and of `VALGRIND_VERSION`. Also a newer patch of
-  `gcc-rocky*`, `gcc-ubuntu24*` or `clang-ubuntu24` within the same major, but
-  only when the distro or apt.llvm.org package is that version.
-- **Ask first:**
+- **Recommended:** patch and minor releases of `mpich`, `openmpi`, `oras`,
+  `oneapi`, and of `VALGRIND_VERSION`. Also a newer patch of `gcc-rocky*`,
+  `gcc-ubuntu24*` or `clang-ubuntu24` within the same major, but only when the
+  distro or apt.llvm.org package is that version.
+- **Offer, but don't recommend:**
   - Major releases of anything.
   - A new compiler major (gcc-toolset-15, clang-23). That changes which
     packages get installed.
-  - `cuda` minor versions. There must be a `<ver>-devel-rockylinux8` and a
-    `<ver>-devel-ubuntu24.04` tag.
+  - `cuda` minor versions. Only offer one if there is both a
+    `<ver>-devel-rockylinux8` and a `<ver>-devel-ubuntu24.04` tag.
   - Rocky point releases (`9.7` → `9.8`).
-- **Leave alone unless asked:**
+- **Don't offer; mention in the summary only:**
   - `ubuntu24`. A new Ubuntu release means new containers.
   - The "alternate versions" (`mpich-rocky8-oneapi`, `mpich-rocky9`). They are
-    deliberately held back. Report newer versions of them, but don't change
-    them.
+    deliberately held back.
 
-Show the user a table of current → latest versions, marked with what you plan
-to change, and wait for confirmation.
+### Let the user pick the updates
+
+Give the user a checklist of the available updates using `AskUserQuestion`
+with `multiSelect: true`. Change only the versions they check.
+
+- One option per update. Label it `<package> <old> → <new>`, and put the
+  reason or risk in the description. Add "(Recommended)" to the label of
+  recommended updates.
+- A question holds at most 4 options, and a call holds at most 4 questions.
+  If there are more updates, split them into questions by group: for example
+  "MPI and tools", "Compilers", and "OS and CUDA". Make more calls if needed.
+- Before the checklist, give a short table of every package: its current
+  version, the latest version, and whether it's offered. Include the ones that
+  aren't offered and why.
+- If there are no updates, say so and go on with a date-only bump.
+- Anything the user types in "Other" (e.g. a different version) overrides the
+  options. Check that the version exists before using it.
 
 ## 3. Apply the version changes
 
