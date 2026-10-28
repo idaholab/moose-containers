@@ -14,8 +14,20 @@ this repo. Ask before running any other git commands.
 
 ## 1. Branch from the latest main
 
-- `git fetch origin`, then `git switch -c update_$(date +%Y%m) origin/main`.
-  If the working tree is dirty or the branch already exists, stop and ask.
+The checkout may be a fork, with `origin` pointing at the fork and another
+remote (often `upstream`) at `idaholab/moose-containers`. Work out both remotes
+from `git remote -v` before branching:
+
+- **`<upstream>`**: the remote whose URL is `idaholab/moose-containers`. Always
+  branch from its `main`, never from a fork's `main`, which may be behind.
+- **`<push>`**: where the branch gets pushed. If another remote points at the
+  user's fork, use that one. Otherwise use `<upstream>`.
+- If no remote points at `idaholab/moose-containers`, or it's unclear which
+  remote is the fork, stop and ask.
+
+Then `git fetch <upstream>`, and
+`git switch -c update_$(date +%Y%m) <upstream>/main`. If the working tree is
+dirty or the branch already exists, stop and ask.
 
 ## 2. Find newer versions
 
@@ -133,7 +145,7 @@ Check that the number of changed lines equals the number of containers.
 
 ## 6. Check locally
 
-- `uv run moosecontainers prepare_push origin/main`. Every container should
+- `uv run moosecontainers prepare_push <upstream>/main`. Every container should
   be listed as building, with the new tags. The changed packages should match
   what you changed.
 - `git diff --stat` should only list the expected files.
@@ -145,8 +157,13 @@ Check that the number of changed lines equals the number of containers.
 - Use one commit. Its title names the packages that changed, e.g.
   `Bump all containers, update mpich and oras`. If no versions changed, use
   `Bump all containers`.
-- `git push -u origin <branch>`, then `gh pr create --base main` with the same
-  title and the description below.
+- `git push -u <push> <branch>`, then open the PR against upstream with the
+  same title and the description below:
+  `gh pr create --repo idaholab/moose-containers --base main --head <owner>:<branch>`,
+  where `<owner>` is the GitHub owner of the `<push>` remote. When pushing
+  straight to upstream, `--head <branch>` is enough.
+- PRs from forks don't build until a maintainer approves them (see "Pull
+  requests from forks" in the README). Tell the user that.
 
 ### PR description
 
