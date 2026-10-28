@@ -86,7 +86,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
       - name: Ruff check
         shell: bash
         run: uv run --frozen ruff check --output-format github
@@ -106,7 +106,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
       - name: Test
         shell: bash
         run: uv run --frozen pytest
@@ -139,7 +139,7 @@ jobs:
           # as nothing from pr/ is run on the runner
           allow-unsafe-pr-checkout: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Delete
@@ -184,7 +184,7 @@ jobs:
           # as nothing from pr/ is run on the runner
           allow-unsafe-pr-checkout: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Delete
@@ -211,7 +211,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
       - name: Check README
         shell: bash
         run: uv run --frozen moosecontainers readme --check
@@ -267,7 +267,7 @@ jobs:
           allow-unsafe-pr-checkout: true
       - name: Install uv
         if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Prepare
@@ -1138,7 +1138,7 @@ jobs:
           allow-unsafe-pr-checkout: true
       - name: Install uv
         if: (github.event_name == 'push' || (github.event_name == 'pull_request_target') == (github.event.pull_request.head.repo.full_name != github.repository))
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: ${{ github.event_name != 'pull_request_target' }}
       - name: Check
