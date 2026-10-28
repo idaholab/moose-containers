@@ -49,9 +49,27 @@ Check each entry in `packages.yml` against upstream. Commands that work:
 Docker Hub tags:
 
 ```bash
-curl -s "https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags?page_size=25&name=<filter>&ordering=last_updated" \
-  | python3 -c 'import sys,json;print([t["name"] for t in json.load(sys.stdin)["results"]])'
+curl -s "https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags?page_size=100&name=<filter>&ordering=last_updated" \
+  | python3 -c 'import sys,json;print(sorted(t["name"] for t in json.load(sys.stdin)["results"]))'
 ```
+
+Gotchas with these lookups:
+
+- Docker Hub's `name=` is a substring match, and the results mix variants.
+  `nvidia/cuda` also has `-cudnn-` and `-tensorrt-` tags, so filter those out
+  client-side. `name=8.` on `rockylinux/rockylinux` also matches `9.8.2026...`.
+  A short page (`page_size=25`) can cut off the version you want, so use 100 and
+  narrow `name=` to the series you need (e.g. `13.3`).
+- The Rocky and apt/rpm listings mix major versions. Filter to the major that
+  `packages.yml` uses (e.g. `gcc-toolset-13-gcc-`) before taking the newest,
+  then report newer majors separately. Empty results for a major (e.g. `gcc-15`
+  in `noble`, or an `apt.llvm.org` suite that doesn't exist) mean it isn't
+  available, not that the lookup failed.
+- On macOS, `zcat file.gz` looks for `file.gz.Z` and fails. Use
+  `zcat < file.gz` or `gunzip -c file.gz`. The oneAPI primary.xml.gz is large
+  (about 160 MB uncompressed), so `grep -A4` for the package name, don't print it.
+- The `href` for primary.xml.gz in `repomd.xml` is a path relative to
+  `https://yum.repos.intel.com/oneapi/`. Ignore the `primary.sqlite.bz2` entry.
 
 Put downloaded files (e.g. the oneAPI primary.xml.gz) in a fresh `mktemp -d`.
 
@@ -109,6 +127,9 @@ with `multiSelect: true`. Change only the versions they check.
 - If there are no updates, say so and go on with a date-only bump.
 - Anything the user types in "Other" (e.g. a different version) overrides the
   options. Check that the version exists before using it.
+- If the "Other" text is a question rather than a choice (e.g. "is there a newer
+  13.3 cuda?"), look it up, then ask again with the answer. Don't treat it as a
+  selection.
 
 ## 3. Apply the version changes
 
@@ -147,7 +168,10 @@ Check that the number of changed lines equals the number of containers.
 
 - `uv run moosecontainers prepare_push <upstream>/main`. Every container should
   be listed as building, with the new tags. The changed packages should match
-  what you changed.
+  what you changed. The output ends with a very long `containers={...}` JSON
+  line, so read only the tables, e.g. `... | sed -n '/## Container builds/,/^-- Output/p'`.
+  The `uri` column shows staging names (`staging-<name>:main-<tag>`). The
+  released name and tag drop `staging-` and `main-`.
 - `git diff --stat` should only list the expected files.
 - Run `uv run pytest` and `uvx --from actionlint-py actionlint` only if
   something other than YAML and README changed.
@@ -164,29 +188,37 @@ Check that the number of changed lines equals the number of containers.
   straight to upstream, `--head <branch>` is enough.
 - PRs from forks don't build until a maintainer approves them (see "Pull
   requests from forks" in the README). Tell the user that.
+- If the commit or push is refused by a permission prompt or classifier, don't
+  retry or work around it. Say what was blocked, and let the user allow it
+  (e.g. a `Bash(git *)` permission rule) or run it themselves.
 
 ### PR description
 
-The description has two bulleted lists:
+The description has two tables:
 
-- **Packages updated.** One bullet per changed version, as `<package>: <old> →
-  <new>`. Include versions changed outside `packages.yml`, such as the Rocky
-  `FROM` pin and `VALGRIND_VERSION`. If nothing changed, write "None".
-- **Containers updated.** One bullet per container that will build, as its
-  full name and new tag. Take these from the `prepare_push` output in step 6,
-  not from memory.
+- **Packages updated.** One row per changed version, with columns `package`,
+  `old` and `new`. Include versions changed outside `packages.yml`, such as the
+  Rocky `FROM` pin and `VALGRIND_VERSION`. If nothing changed, write "None"
+  instead of a table.
+- **Containers updated.** One row per container that will build, with columns
+  `container` and `tag` (the full new tag). Take these from the `prepare_push`
+  output in step 6, not from memory.
 
 ```markdown
 ## Packages updated
 
-- `mpich`: 5.0.1 → 5.0.2
-- `oras`: 1.3.4 → 1.3.6
+| package | old | new |
+|---|---|---|
+| `mpich` | 5.0.1 | 5.0.2 |
+| `oras` | 1.3.4 | 1.3.6 |
 
 ## Containers updated
 
-- `moose-base-rocky8`: `8.10-20261027`
-- `moose-mpi-ubuntu24-gcc`: `24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027`
-- ...
+| container | tag |
+|---|---|
+| `moose-base-rocky8` | `8.10-20261027` |
+| `moose-mpi-ubuntu24-gcc` | `24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027` |
+| ... | ... |
 ```
 
 Finally, report to the user the PR URL, the versions that changed, and any

@@ -60,7 +60,7 @@ RUN "${GCC_DIR}/bin/gfortran" --version && \
 
 # Install valgrind
 ARG VALGRIND_DIR=/opt/valgrind
-ARG VALGRIND_VERSION=3.27.1
+ARG VALGRIND_VERSION=3.28.0
 RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
     GCC_MAJOR_VERSION="$(/bin/bash -c "cut -d '.' -f 1,1 <<< $GCC_VERSION")" && \
     export CC=/usr/bin/gcc-${GCC_MAJOR_VERSION} && \
