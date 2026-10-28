@@ -5,19 +5,17 @@ description: Rebuild every moose-containers image by bumping all container dates
 
 # Bump all containers
 
-The model is idaholab/moose-containers#57 ("Bump all containers, update mpich")
-and #45 ("Update all containers"). A routine bump changes only `containers.yml`,
-`packages.yml` and `README.md`, plus a Dockerfile when a version lives there
-(see step 3). Read `AGENTS.md` first; its rules apply here.
+A routine bump changes only `containers.yml`, `packages.yml` and `README.md`,
+plus a Dockerfile when a version lives there (see step 3). Read `AGENTS.md`
+first; its rules apply here.
 
 Invoking this skill is permission to run the git commands in steps 1 and 7 in
 this repo. Ask before running any other git commands.
 
 ## 1. Branch from the latest main
 
-- `git fetch origin`, then `git switch -c update_$(date +%Y%m) origin/main`
-  (#57 used `update_202610`). If the working tree is dirty or the branch
-  already exists, stop and ask.
+- `git fetch origin`, then `git switch -c update_$(date +%Y%m) origin/main`.
+  If the working tree is dirty or the branch already exists, stop and ask.
 
 ## 2. Find newer versions
 
@@ -45,6 +43,22 @@ curl -s "https://hub.docker.com/v2/repositories/<namespace>/<repo>/tags?page_siz
 
 Put downloaded files (e.g. the oneAPI primary.xml.gz) in a fresh `mktemp -d`.
 
+### Look for versions the table doesn't cover
+
+The table above can go out of date as packages and containers are added. Before
+going further, check for versions it doesn't cover:
+
+- Every key in `packages.yml`. Any key not matched by a row above is missing.
+- Versions pinned in `docker/` outside `packages.yml`. For example:
+  `grep -rnE 'ARG [A-Z_]+_VERSION=[0-9]|^FROM [^$]+:[0-9]' docker`, plus any
+  version hard-coded in a `files/` script or URL.
+- New external sources. For example, a new repo file, a new `curl` download,
+  or a new base image.
+
+If you find any, list them for the user with where each one is set. Ask how to
+look up its latest version, and whether to update it. Don't guess a source.
+Once the user answers, offer to add a row to the table in this skill.
+
 ### What to change without asking, and what to ask about
 
 The compiler and package tags must match what the distribution actually
@@ -64,8 +78,8 @@ installs. The Dockerfiles `grep` the installed version and fail if it differs.
 - **Leave alone unless asked:**
   - `ubuntu24`. A new Ubuntu release means new containers.
   - The "alternate versions" (`mpich-rocky8-oneapi`, `mpich-rocky9`). They are
-    deliberately held back. #23 reverted an mpich update on oneapi because PETSc
-    failed. Report newer versions of them, but don't change them.
+    deliberately held back. Report newer versions of them, but don't change
+    them.
 
 Show the user a table of current → latest versions, marked with what you plan
 to change, and wait for confirmation.
@@ -101,7 +115,7 @@ Check that the number of changed lines equals the number of containers.
   bump. If it changes, include that.
 - The example tag in README "Versioning" is written by hand
   (`moose-mpi-ubuntu24-gcc:<ubuntu>-gcc<ver>-mpich<ver>-openmpi<ver>-<date>`).
-  Update it to the new tag. #57 forgot to, so it may already be stale.
+  Update it to the new tag.
 
 ## 6. Check locally
 
@@ -114,16 +128,35 @@ Check that the number of changed lines equals the number of containers.
 
 ## 7. Commit, push, open the PR
 
-- One commit with a title in the style of #57, e.g. `Bump all containers,
-  update mpich and oras`, or `Bump all containers` if no versions changed.
+- Use one commit. Its title names the packages that changed, e.g.
+  `Bump all containers, update mpich and oras`. If no versions changed, use
+  `Bump all containers`.
 - `git push -u origin <branch>`, then `gh pr create --base main` with the same
-  title and a body that lists the changes, like #57:
+  title and the description below.
 
-  ```
-  - Update mpich to 5.0.2
-  - Update oras to 1.3.6
-  - Bump all container dates
-  ```
+### PR description
 
-- Report the PR URL, the versions that changed, and the newer versions you
-  skipped (with the reason for each).
+The description has two bulleted lists:
+
+- **Packages updated.** One bullet per changed version, as `<package>: <old> →
+  <new>`. Include versions changed outside `packages.yml`, such as the Rocky
+  `FROM` pin and `VALGRIND_VERSION`. If nothing changed, write "None".
+- **Containers updated.** One bullet per container that will build, as its
+  full name and new tag. Take these from the `prepare_push` output in step 6,
+  not from memory.
+
+```markdown
+## Packages updated
+
+- `mpich`: 5.0.1 → 5.0.2
+- `oras`: 1.3.4 → 1.3.6
+
+## Containers updated
+
+- `moose-base-rocky8`: `8.10-20261027`
+- `moose-mpi-ubuntu24-gcc`: `24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027`
+- ...
+```
+
+Finally, report to the user the PR URL, the versions that changed, and any
+newer versions you skipped, with the reason for each.
