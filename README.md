@@ -30,7 +30,7 @@ Each container's tag is made from its parents' versions, its own versions, and i
 For example, the Ubuntu 24.04 GCC MPI image gets a tag like:
 
 ```
-ghcr.io/idaholab/moose-containers/moose-mpi-ubuntu24-gcc:24.04-gcc14.2.0-mpich5.0.1-openmpi5.0.11-20260918
+ghcr.io/idaholab/moose-containers/moose-mpi-ubuntu24-gcc:24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027
                                                          └─OS─┘ └compiler┘ └────────MPI────────┘ └─date─┘
 ```
 
@@ -190,15 +190,15 @@ it by hand.
 <!-- releases:start -->
 | container                                                                                                                                   | tag                                                             |
 |---------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| [`moose-base-rocky8`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-base-rocky8)                     | `8.10-20261008`                                                 |
-| [`moose-mpi-rocky8-cuda-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-cuda-gcc)     | `8.10-cuda13.3.1-gcc13.3.1-mpich5.0.2-openmpi5.0.11-20261008`   |
-| [`moose-mpi-rocky8-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-gcc)               | `8.10-gcc13.3.1-mpich5.0.2-openmpi5.0.11-20261008`              |
-| [`moose-mpi-rocky8-oneapi`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-oneapi)         | `8.10-gcc13.3.1-oneapi2026.1.1-mpich4.3.2-20261008`             |
-| [`moose-mpi-rocky9-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky9-gcc)               | `9.7-gcc13.3.1-mpich4.3.2-openmpi5.0.11-20261008`               |
-| [`moose-mpi-ubuntu24-clang`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-clang)       | `24.04-clang22.1.8-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261008` |
-| [`moose-mpi-ubuntu24-cuda-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-cuda-gcc) | `24.04-cuda13.3.1-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261008`  |
-| [`moose-mpi-ubuntu24-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-gcc)           | `24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261008`             |
-| [`moose-mpi-ubuntu24-gccmin`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-gccmin)     | `24.04-gcc9.5.0-mpich5.0.2-20261008`                            |
+| [`moose-base-rocky8`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-base-rocky8)                     | `8.10-20261027`                                                 |
+| [`moose-mpi-rocky8-cuda-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-cuda-gcc)     | `8.10-cuda13.3.1-gcc13.3.1-mpich5.0.2-openmpi5.0.11-20261027`   |
+| [`moose-mpi-rocky8-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-gcc)               | `8.10-gcc13.3.1-mpich5.0.2-openmpi5.0.11-20261027`              |
+| [`moose-mpi-rocky8-oneapi`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky8-oneapi)         | `8.10-gcc13.3.1-oneapi2026.2.0-mpich4.3.2-20261027`             |
+| [`moose-mpi-rocky9-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-rocky9-gcc)               | `9.7-gcc13.3.1-mpich4.3.2-openmpi5.0.11-20261027`               |
+| [`moose-mpi-ubuntu24-clang`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-clang)       | `24.04-clang22.1.8-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027` |
+| [`moose-mpi-ubuntu24-cuda-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-cuda-gcc) | `24.04-cuda13.3.1-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027`  |
+| [`moose-mpi-ubuntu24-gcc`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-gcc)           | `24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261027`             |
+| [`moose-mpi-ubuntu24-gccmin`](https://github.com/idaholab/moose-containers/pkgs/container/moose-containers%2Fmoose-mpi-ubuntu24-gccmin)     | `24.04-gcc9.5.0-mpich5.0.2-20261027`                            |
 <!-- releases:end -->
 
 ### Base images
