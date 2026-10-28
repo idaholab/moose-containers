@@ -22,8 +22,12 @@ def add_parser(subparsers: argparse._SubParsersAction):
     add_check(parser, "Only check that the workflows are up to date.")
 
 
-USES_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*([^\s@#]+)@(\S+)", re.MULTILINE)
-"""Matches the action (group 1) and version (group 2) in a uses: line."""
+USES_RE = re.compile(
+    r"^\s*(?:-\s+)?uses:\s*([^\s@#]+)@(\S+)(?:[ \t]+#[ \t]*(v?\d\S*))?",
+    re.MULTILINE,
+)
+"""Matches the action (group 1), ref (group 2) and the optional version
+comment that follows a pinned SHA (group 3) in a uses: line."""
 
 
 class WorkflowsException(Exception):
@@ -35,7 +39,9 @@ def action_versions() -> dict[str, str]:
 
     The versions come from the files in config.ACTION_SOURCES, except for
     the generated workflows, so that the templates follow the versions that
-    Dependabot updates. Every file must use the same version of an action.
+    Dependabot updates. A version is the ref, plus the version comment
+    that follows a SHA (as in "<sha> # v1.2.3"). Every file must use the
+    same version of an action.
     """
     generated = {
         os.path.join(config.REPO_ROOT, w) for w in config.WORKFLOWS.values()
@@ -50,7 +56,8 @@ def action_versions() -> dict[str, str]:
     versions: dict[str, str] = {}
     for path in paths:
         with open(path) as f:
-            for action, version in USES_RE.findall(f.read()):
+            for action, ref, comment in USES_RE.findall(f.read()):
+                version = f"{ref} # {comment}" if comment else ref
                 if versions.setdefault(action, version) != version:
                     raise WorkflowsException(
                         f"{action} is used at both {versions[action]} and "

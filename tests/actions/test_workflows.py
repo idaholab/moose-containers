@@ -54,6 +54,24 @@ def test_action_versions(repo):
     }
 
 
+def test_action_versions_pinned(repo):
+    """A pinned SHA keeps the version comment that follows it."""
+    sha = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    repo.write(
+        ".github/workflows/a.yml", f"uses: actions/checkout@{sha} # v7.0.1\n"
+    )
+    repo.write(
+        ".github/workflows/b.yml", f"uses: actions/checkout@{sha}  #v7.0.1\n"
+    )
+    assert action_versions() == {"actions/checkout": f"{sha} # v7.0.1"}
+
+    repo.write(
+        ".github/workflows/b.yml", f"uses: actions/checkout@{sha} # v7.0.2\n"
+    )
+    with pytest.raises(WorkflowsException, match="v7.0.1 and"):
+        action_versions()
+
+
 def test_action_versions_differ(repo):
     """An action used at two versions raises."""
     repo.write(".github/workflows/a.yml", "uses: actions/checkout@v6\n")
