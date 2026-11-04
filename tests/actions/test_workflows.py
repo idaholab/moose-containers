@@ -4,7 +4,11 @@ import os
 
 import pytest
 
-from moosecontainers.actions.workflows import render
+from moosecontainers.actions.workflows import (
+    WorkflowsException,
+    action_versions,
+    render,
+)
 from moosecontainers.cli import main, parse_args
 from moosecontainers.container import ContainersException
 
@@ -26,6 +30,68 @@ def test_render(repo):
         "mpi-os-gcc: compiler-os-gcc\n"
         "leaves: mpi-os-gcc\n"
     )
+
+
+def test_action_versions(repo):
+    """Versions come from the workflows and actions, but not build.yml."""
+    repo.write(
+        ".github/workflows/other.yml",
+        "steps:\n"
+        "  - uses: actions/checkout@v7\n"
+        "  - name: Local\n"
+        "    uses: ./.github/actions/build\n"
+        "  - uses: astral-sh/setup-uv@v1.2.3 # comment\n",
+    )
+    repo.write(
+        ".github/actions/build/action.yml",
+        "    uses: docker/login-action@v4\n    uses: actions/checkout@v7\n",
+    )
+    repo.write(WORKFLOW, "uses: actions/checkout@v1\n")
+    assert action_versions() == {
+        "actions/checkout": "v7",
+        "astral-sh/setup-uv": "v1.2.3",
+        "docker/login-action": "v4",
+    }
+
+
+def test_action_versions_pinned(repo):
+    """A pinned SHA keeps the version comment that follows it."""
+    sha = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    repo.write(
+        ".github/workflows/a.yml", f"uses: actions/checkout@{sha} # v7.0.1\n"
+    )
+    repo.write(
+        ".github/workflows/b.yml", f"uses: actions/checkout@{sha}  #v7.0.1\n"
+    )
+    assert action_versions() == {"actions/checkout": f"{sha} # v7.0.1"}
+
+    repo.write(
+        ".github/workflows/b.yml", f"uses: actions/checkout@{sha} # v7.0.2\n"
+    )
+    with pytest.raises(WorkflowsException, match="v7.0.1 and"):
+        action_versions()
+
+
+def test_action_versions_differ(repo):
+    """An action used at two versions raises."""
+    repo.write(".github/workflows/a.yml", "uses: actions/checkout@v6\n")
+    repo.write(".github/workflows/b.yml", "uses: actions/checkout@v7\n")
+    with pytest.raises(WorkflowsException, match="both v6 and v7"):
+        action_versions()
+
+
+def test_render_action(repo):
+    """The template gets actions at their versions."""
+    repo.write(".github/workflows/other.yml", "uses: actions/checkout@v7\n")
+    repo.write(TEMPLATE, '[[ action("actions/checkout") ]]\n')
+    assert render(TEMPLATE) == "actions/checkout@v7\n"
+
+
+def test_render_action_unknown(repo):
+    """An action that isn't used elsewhere raises."""
+    repo.write(TEMPLATE, '[[ action("actions/checkout") ]]\n')
+    with pytest.raises(WorkflowsException, match="version is unknown"):
+        render(TEMPLATE)
 
 
 def test_render_order(repo):

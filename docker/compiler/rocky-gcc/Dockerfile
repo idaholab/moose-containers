@@ -27,7 +27,7 @@ RUN test -n "$GCC_VERSION" && \
 
 # Install valgrind
 ARG VALGRIND_DIR=/opt/valgrind
-ARG VALGRIND_VERSION=3.27.1
+ARG VALGRIND_VERSION=3.28.0
 RUN --mount=type=bind,source=files/install_valgrind.bash,target=/root/install_valgrind.bash \
     GCC_MAJOR_VERSION="$(echo "$GCC_VERSION" | cut -d'.' -f1)" && \
     . /opt/rh/gcc-toolset-${GCC_MAJOR_VERSION}/enable && \
